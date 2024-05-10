@@ -1,0 +1,48 @@
+[build-system]
+# requires = ["setuptools >= 40.6.0", "wheel", "numpy"]
+# build-backend = "setuptools.build_meta"
+requires = ["hatchling", "numpy"]
+build-backend = "hatchling.build"
+
+[project]
+name = "train_pybird_emulators"
+dynamic = ["version"]
+license = {text = "MIT License"}
+description = "A package to train JAX-based emulators for PyBird "
+readme = {file = "README.md", content-type = "text/markdown"}
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: OS Independent",
+]
+
+
+dependencies = [
+]
+
+authors = [
+  {name = "Alexander Reeves", email = "areeves@phys.ethz.ch"},
+]
+
+[project.urls]
+Repository = "https://cosmo-docs.phys.ethz.ch/train_pybird_emulators"
+
+
+[project.optional-dependencies]
+dev = ["twine", "pytest", "pytest-cov", "pytest-regtest", "isort", "ruff", "pre-commit"]
+docs = ["sphinx<7", "sphinx-pynpoint-theme", "myst-parser"]
+
+[tool.hatch.version]
+path = "src/train_pybird_emulators/__init__.py"
+pattern = "__version__ = \"(?P<version>[^']+)\""
+
+
+[tool.pytest.ini_options]
+addopts = "-v -ra"
+testpaths = ["tests"]
+filterwarnings = ["ignore:invalid"]

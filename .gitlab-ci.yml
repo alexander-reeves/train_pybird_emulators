@@ -1,0 +1,55 @@
+image: cosmo-gitlab.phys.ethz.ch:5005/cosmo/vcosmo-ci:python-cosmo-ci
+
+stages:
+    - check_style
+    - test_code
+    - test_and_create_docs
+    - publish_docs
+
+style:
+    before_script:
+        - python3 -m pip install -U pip setuptools ruff
+    script:
+        - make style-check
+    allow_failure: false
+    stage: check_style
+
+
+tests:
+  stage: test_code
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ['3.9', '3.10', '3.11', '3.12']
+  script:
+    - python${PYTHON_VERSION} -m venv venv
+    - source venv/bin/activate
+    - pip install -U "pip<24" setuptools build
+    - python -m build -s
+    - ARCHIVE=$(ls dist/*)
+    - pip install ${ARCHIVE}[dev]
+    - pytest tests
+
+docs:
+    before_script:
+        - python3 -m pip install -U pip setuptools
+        - python3 -m pip install -e .[docs]
+    script:
+        - cd docs
+        - sphinx-build -b html . _build/html
+    stage: test_and_create_docs
+    artifacts:
+           paths:
+             - docs/_build
+
+
+publish_docs:
+    script:
+        - publish_docs docs/_build/html train_pybird_emulators
+        - create_index_html
+    stage: publish_docs
+    dependencies:
+          - docs
+    when: manual
+    only:
+        - master
+        - main
