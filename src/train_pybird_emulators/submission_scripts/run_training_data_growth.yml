@@ -1,0 +1,10 @@
+# In the parameters section one can define global variables. When submitting the jobs epipe will replace them in the commands (see below)
+- parameters:
+    - executable1: generate_training_data_growth.py
+    - n_jobs: 100
+    - num_samps_per_index: 5000
+    - n_gridpoints: 500000 #Should be the product of the previous two numbers 
+
+# - name: generate_training_data_test
+- name: generate_training_data_growth
+  cmd: esub $[executable1] --tasks='0>100' --n_jobs=$[n_jobs] --mode=jobarray --function='merge' --main_time=4 --main_memory=4096 --system=slurm --num_samps_per_index=$[num_samps_per_index] --n_gridpoints=$[n_gridpoints] --filename_config='config_growth.yaml' --merge_memory=8192 --watchdog_time=24

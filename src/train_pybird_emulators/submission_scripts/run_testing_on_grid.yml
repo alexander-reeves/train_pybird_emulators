@@ -1,0 +1,9 @@
+# In the parameters section one can define global variables. When submitting the jobs epipe will replace them in the commands (see below)
+- parameters:
+    - executable1: compute_test_on_grid.py
+
+# - name: compute_test_resum
+#   cmd: esub $[executable1] --tasks='0>200' --n_jobs=200 --mode=jobarray --function='all' --main_time=4 --main_memory=8192 --system=slurm --num_per_ind=25 --input_dicts_path='/cluster/scratch/areeves/frequentist_framework_data/lhc_cosmo_dict.pkl' --filename_knots='/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/final_knots_55.npy' --resum
+
+- name: compute_test
+  cmd: esub $[executable1] --tasks='0>200' --n_jobs=200 --mode=jobarray --function='all' --main_time=4 --main_memory=8192 --system=slurm --num_per_ind=25 --input_dicts_path='/cluster/scratch/areeves/frequentist_framework_data/lhc_cosmo_dict.pkl' --filename_knots='/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/final_knots_55.npy'

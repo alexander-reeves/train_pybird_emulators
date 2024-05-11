@@ -1,3 +1,8 @@
+# esub stuff
+*esub_logs/
+*optimized_knots/
+*data/
+
 *.py[co]
 __pycache__/
 

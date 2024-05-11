@@ -1,0 +1,10 @@
+# Created on Nov 9
+# Author: Alexander Reeves
+
+# In the parameters section one can define global variables. When submitting the jobs epipe will replace them in the commands (see below)
+- parameters:
+    - executable1: knots_decomposition_jax.py
+
+# # # This is a job instance without dependencies (starts directly).
+- name: knots_decomposition_jax_80_jit
+  cmd: esub $[executable1] --tasks='0 > 3' --n_jobs=3 --source_file=activate.sh --main_n_cores_per_job=16 --mode=jobarray --main_time=4 --function='main' --main_memory=4096 --n_k=1000 --nknots=80 --nbank=8 --system=slurm

@@ -1,0 +1,6 @@
+# In the parameters section one can define global variables. When submitting the jobs epipe will replace them in the commands (see below)
+- parameters:
+    - executable1: test_irloop_reduction.py
+
+- name: compute_irloop
+  cmd: esub $[executable1] --tasks='0>200' --n_jobs=200 --mode=jobarray --function='main,watchdog' --main_time=4 --main_memory=2048 --system=slurm --num_per_ind=25 --input_dicts_path='/cluster/scratch/areeves/frequentist_framework_data/lhc_cosmo_dict.pkl'
