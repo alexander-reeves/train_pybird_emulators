@@ -1,4 +1,4 @@
-#code copied from https://github.com/DifferentiableUniverseInitiative/jax_cosmo/blob/816069f0e69d75ec83689406623839b53fbf43fc/jax_cosmo/scipy/interpolate.py#L1
+# code copied from https://github.com/DifferentiableUniverseInitiative/jax_cosmo/blob/816069f0e69d75ec83689406623839b53fbf43fc/jax_cosmo/scipy/interpolate.py#L1
 # This module contains some missing ops from jax
 import functools
 
@@ -8,6 +8,7 @@ from jax.numpy import concatenate
 from jax.numpy import ones
 from jax.numpy import zeros
 from jax.tree_util import register_pytree_node_class
+
 
 @register_pytree_node_class
 class InterpolatedUnivariateSpline_jax(object):
@@ -134,11 +135,14 @@ class InterpolatedUnivariateSpline_jax(object):
                 )
 
                 A += jnp.diag(
-                    jnp.concatenate([-jnp.array([1 + h[0] / h[1]]), dt[1:] ** 2 / h[1:]]),
+                    jnp.concatenate(
+                        [-jnp.array([1 + h[0] / h[1]]), dt[1:] ** 2 / h[1:]]
+                    ),
                     k=1,
                 )
                 A += jnp.diag(
-                    jnp.concatenate([jnp.atleast_1d(h[0] / h[1]), jnp.zeros(n - 3)]), k=2
+                    jnp.concatenate([jnp.atleast_1d(h[0] / h[1]), jnp.zeros(n - 3)]),
+                    k=2,
                 )
 
                 A += jnp.diag(
@@ -378,7 +382,9 @@ class InterpolatedUnivariateSpline_jax(object):
             cst = jnp.concatenate(
                 [
                     jnp.zeros(1),
-                    jnp.cumsum(a * h + b * h**2 / 2 + c * h**3 / 3 + d * h**4 / 4),
+                    jnp.cumsum(
+                        a * h + b * h**2 / 2 + c * h**3 / 3 + d * h**4 / 4
+                    ),
                 ]
             )
             return (
@@ -410,4 +416,3 @@ class InterpolatedUnivariateSpline_jax(object):
             sign = -1
         xs = jnp.array([a, b])
         return sign * jnp.diff(self.antiderivative(xs))
-
