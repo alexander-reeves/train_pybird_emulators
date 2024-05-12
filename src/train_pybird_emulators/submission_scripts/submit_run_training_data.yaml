@@ -1,0 +1,16 @@
+# In the parameters section one can define global variables. When submitting the jobs epipe will replace them in the commands (see below)
+- parameters:
+    - scripts_dir: src/train_pybird_emulators/scripts
+    - executable1: generate_training_data.py
+    - n_jobs: 200
+    - num_samps_per_index: 5000
+    - n_gridpoints: 1000000 #Should be the product of the previous two numbers 
+
+- name: generate_training_data_growth
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0>200' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=4096 --system=slurm --num_samps_per_index=$[num_samps_per_index] --n_gridpoints=$[n_gridpoints] --filename_config='/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/configs/config_growth.yaml' --scratch=/cluster/scratch/areeves/pybird_training_data_growth --merge_memory=8192 --watchdog_time=24 --td_type=growth --verbosity=debug
+
+# - name: generate_training_data_greenfunction
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0>200' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=4096 --system=slurm --num_samps_per_index=$[num_samps_per_index] --n_gridpoints=$[n_gridpoints] --filename_config='/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/configs/config_green_functions.yaml' --scratch=/cluster/scratch/areeves/pybird_training_data_green_function --merge_memory=8192 --watchdog_time=24 --td_type=greenfunction --verbosity=debug
+
+# - name: generate_training_data_pybird_emu
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0>1' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=4096 --system=slurm --num_samps_per_index=$[num_samps_per_index] --n_gridpoints=$[n_gridpoints] --filename_config='/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/configs/config_pybird_80_knots_5sigma.yaml' --scratch=/cluster/scratch/areeves/pybird_training_data_pybird --merge_memory=8192 --watchdog_time=24 --td_type=pybird_pieces --cov_file=/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/knots_data/covariance_80_knots.npy --mu_file=/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/knots_data/mu_80_knots.npy --filename_knots=/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/knots_data/final_knots_80.npy 

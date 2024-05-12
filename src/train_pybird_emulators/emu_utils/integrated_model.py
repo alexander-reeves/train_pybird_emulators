@@ -120,8 +120,12 @@ class IntegratedModel:
 
     def train(self, X, y, learning_rates=[1e-3, 5e-4, 1e-4, 5e-5], *args, **kwargs):
         # Scale the training data
-        X_scaled = self.input_scaler.transform(X)
-        y_scaled = self.output_scaler.transform(y)
+        if self.input_scaler is not None:
+            X_scaled = self.input_scaler.transform(X)
+            y_scaled = self.output_scaler.transform(y)
+        else:
+            X_scaled = X
+            y_scaled = y
 
         early_stopping = EarlyStopping(monitor='val_loss', patience=200, verbose=1, restore_best_weights=True)
 
@@ -130,15 +134,12 @@ class IntegratedModel:
 
             # Compile the model with the current learning rate
             custom_loss = CustomLoss(element_weights=self.rescaling_factor)
-            self.model.compile(optimizer=keras.optimizers.legacy.Adam(learning_rate=lr), loss=custom_loss)
-            # self.model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss=custom_loss)
+            self.model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss=custom_loss)
 
-            # Get the total number of epochs (this can be adjusted based on your needs)
             total_epochs = kwargs.get('epochs', 200)
 
             # Wrap the training in a tqdm progress bar
             with tqdm(total=total_epochs, unit="epoch", postfix={}) as pbar:
-                # Custom callback to update tqdm progress bar after each epoch and display validation loss
                 def on_epoch_end(epoch, logs):
                     train_loss = logs.get('loss', 0.0)  # Get the training loss from logs
                     val_loss = logs.get('val_loss', 0.0)  # Get the validation loss from logs
@@ -147,13 +148,11 @@ class IntegratedModel:
                     self.val_losses.append(val_loss)
                     pbar.update(1)
 
-                # Train the model with early stopping and tqdm callback
                 self.model.fit(X_scaled, y_scaled,
                             callbacks=[early_stopping, LambdaCallback(on_epoch_end=on_epoch_end)],
-                            verbose=0,  # Turn off default verbose
+                            verbose=0,
                             *args, **kwargs)
 
-            # Optionally save the model at the end of the training cycle
             if self.temp_file is not None:
                 self.save(self.temp_file)
 
@@ -215,18 +214,18 @@ class IntegratedModel:
         self.scaler_scale_out = self.output_scaler.scale_ # Standard deviation of the features
         self.scaler_mean_out = self.output_scaler.mean_ # Standard deviation of the features
 
-        self.scaler_mean_in_tf = tf.constant(self.scaler_mean_in, dtype=tf.float32)
-        self.scaler_scale_in_tf = tf.constant(self.scaler_scale_in, dtype=tf.float32)
+        self.scaler_mean_in_tf = tf.constant(self.scaler_mean_in)
+        self.scaler_scale_in_tf = tf.constant(self.scaler_scale_in)
 
-        self.scaler_mean_out_tf = tf.constant(self.scaler_mean_out, dtype=tf.float32)
-        self.scaler_scale_out_tf = tf.constant(self.scaler_scale_out, dtype=tf.float32)
+        self.scaler_mean_out_tf = tf.constant(self.scaler_mean_out)
+        self.scaler_scale_out_tf = tf.constant(self.scaler_scale_out)
 
         try: 
             self.pca_scaler_mean = self.pca_scaler.mean_
             self.pca_scaler_scale = self.pca_scaler.scale_
 
-            self.pca_scaler_mean_tf = tf.constant(self.pca_scaler_mean, dtype=tf.float32)
-            self.pca_scaler_scale_tf = tf.constant(self.pca_scaler_scale, dtype=tf.float32)
+            self.pca_scaler_mean_tf = tf.constant(self.pca_scaler_mean)
+            self.pca_scaler_scale_tf = tf.constant(self.pca_scaler_scale)
 
             self.pca_tensor = tf.constant(self.pca_model.components_)
             self.mean_tensor = tf.constant(self.pca_model.mean_)

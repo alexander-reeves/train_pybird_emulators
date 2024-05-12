@@ -1,0 +1,13 @@
+parameters:
+- name: omega_m
+  prior:
+  - 0.1
+  - 0.9
+- name: w0
+  prior:
+  - -3
+  - -0.1
+- name: z
+  prior:
+  - 0.0
+  - 5.0

@@ -1,5 +1,4 @@
 import numpy as np
-import utils
 import yaml
 from scipy.stats import qmc, norm, truncnorm, uniform
 import pybird 
@@ -8,7 +7,12 @@ import pickle
 from pybird.correlator import Correlator
 from pybird.fftlog import FFTLog
 import h5py
-import gc
+from train_pybird_emulators.emu_utils import emu_utils
+from cosmic_toolbox import logger 
+import os
+from functools import partial
+
+LOGGER = logger.get_logger(__name__)
 
 def setup(args):
     '''
@@ -19,157 +23,177 @@ def setup(args):
 
     parser.add_argument("--num_samps_per_index", type=int, required=True)
     parser.add_argument("--filename_config", type=str, required=True, help='config with the priors for the different trainable parameters')
-    parser.add_argument("--filename_knots", type=str, required=True, help='optimal k-knots placement file as a .npy')
     parser.add_argument("--n_gridpoints", type=int, required=True, help='number of gridpoints in the LHC, should be equal to num_jobs*num_samples_per_index')
+    parser.add_argument(
+        "--verbosity",
+        default="warning",
+        type=str,
+        action="store",
+        help="Verbosity level",
+    )
+    parser.add_argument(
+        "--scratch",
+        type=str,
+        required=True,
+        help="The scratch directory to store the training data",
+    )
+
+    parser.add_argument(
+        "--td_type",
+        type=str,
+        required=True,
+        help="The type of training data to compute and store one of ['growth', 'greenfunction', 'pybird_pieces']",
+    )
+
+    parser.add_argument(
+        "--k_l",
+        type=float,
+        required=False,
+        default=1e-4,
+        help="The value of k_l to use for the computation of the pybird pieces training data")
+    
+    parser.add_argument(
+        "--k_r",
+        type=float,
+        required=False,
+        default=0.7,
+        help="The value of k_r to use for the computation of the pybird pieces training data")
+    
+    parser.add_argument(
+        "--cov_file",
+        type=str,
+        required=False,
+        default=None,
+        help="the covariance matrix file for gaussian sampling")
+    
+    parser.add_argument(
+        "--mu_file",
+        type=str,
+        required=False,
+        default=None,
+        help="the mean file for gaussian sampling")
+
+    parser.add_argument("--filename_knots", type=str, default=None, required=False, help='optimal k-knots placement file as a .npy')
+
 
 
     args = parser.parse_args(args)
 
-
-    output_fn = '/cluster/scratch/areeves/pybird_emu_training_data_80_knots'
-   
+    td_type = args.td_type
     num_samps_per_index = args.num_samps_per_index 
     filename_config = args.filename_config
-    filename_knots = args.filename_knots
     n_gridpoints = args.n_gridpoints
+    scratch = args.scratch
+    k_l = args.k_l
+    k_r = args.k_r
+    cov_file = args.cov_file
+    mu_file = args.mu_file
+    filename_knots = args.filename_knots
 
-    config_loaded = utils.read_yaml_file(filename_config)
-    parameters = config_loaded['parameters']
-    knots = np.load(filename_knots)
+    if td_type not in ['growth', 'greenfunction', 'pybird_pieces']:
+        raise ValueError(f"td_type must be one of ['growth', 'greenfunction', 'pybird_pieces'] but got {td_type}")
+    
+    if td_type == "growth":
+        LOGGER.info("Computing growth factor training data")
+        datasets = ["D", "f", "H", "DA"]
+        computation_function = emu_utils.get_growth_factor_from_params
+    elif td_type == "greenfunction":
+        LOGGER.info("Computing green function training data")
+        datasets = ["Y1", "G1t", "V12t", "G1", "f"]
+        computation_function = emu_utils.get_green_function_from_params
+    elif td_type == "pybird_pieces":
+        LOGGER.info("Computing pybird pieces training data")
+        datasets = ["P11l", "Pctl", "Ploopl", "IRPs11", "IRPsct", "IRPsloop"]
+
+        LOGGER.info("Setting up pybird")
+        N = Correlator()
+        #Set up pybird in time unspecified mode for the computation of the pybird pieces training data
+        N.set({'output': 'bPk', 'multipole': 3, 'kmax': 0.6,
+        'fftaccboost': 2,
+        'with_resum': True, 'with_exact_time': True,
+        'with_time': False, # time unspecified
+        'km': 1., 'kr': 1., 'nd': 3e-4,
+        'eft_basis': 'eftoflss', 'with_stoch': True})
+        knots = np.load(filename_knots)
+        kk = np.logspace(np.log10(k_l), np.log10(k_r), 10000) #ar update make this extremely large such that we are insensitive to interpolation errors!
+        computation_function = partial(emu_utils.get_pgg_from_params, N=N,kk=kk, knots=knots)
+
+
+
+    # if scratch directory does not exist create it
+    os.makedirs(scratch, exist_ok=True)
+
+    config_loaded = emu_utils.read_yaml_file(filename_config)
+    parameters_dicts = config_loaded['parameters']
 
     # Get the number of parameters
-    num_params = len(parameters)
-
+    num_params = len(parameters_dicts)
 
     prior_ranges = np.zeros((num_params, 2))
-    for i, parameter in enumerate(parameters):
+    for i, parameter in enumerate(parameters_dicts):
         prior_ranges[i] = parameter['prior']
 
-    dimension = len(parameters)
+    dimension = len(parameters_dicts)
 
     lhd = qmc.LatinHypercube(d=dimension).random(n=n_gridpoints)
 
-    N = Correlator()
+    # set up logger and print args
+    logger.set_logger_level(LOGGER, str(args.verbosity))
 
-    #Set up pybird in time unspecified mode
-    N.set({'output': 'bPk', 'multipole': 3, 'kmax': 0.6,
-       'fftaccboost': 2,
-       'with_resum': True, 'with_exact_time': True,
-       'with_time': False, # time unspecified
-       'km': 1., 'kr': 1., 'nd': 3e-4,
-       'eft_basis': 'eftoflss', 'with_stoch': True})
+    LOGGER.debug(
+        "######################## Read in command "
+        "line arguments as ############################"
+    )
+    LOGGER.debug(args)
+    LOGGER.debug("####################################################")
 
-
-    with open("/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/eft_params_boss_cmass_ngc_l0", 'rb') as f:
-        eft_params = pickle.load(f)
-    
-    cov_file = f"/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/covariance_{knots.shape[0]}_knots.npy"
-    mu_file = f"/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/mu_{knots.shape[0]}_knots.npy"
-
-    return num_samps_per_index, lhd, prior_ranges, output_fn, N, eft_params, knots, cov_file,mu_file
-
-
-def merge(indices, args):
-    
-    num_samps_per_index, lhd, prior_ranges, output_fn, N, eft_params, knots, cov_file,mu_file = setup(args)
-    
-    with h5py.File(output_fn + '/total_data.h5', 'a') as hdf_file:
-        # Function to load and save data to HDF5
-        def update_or_create_dataset(dataset_name, data):
-            if dataset_name in hdf_file:
-                # Dataset exists, append the data to the existing dataset
-                hdf_file[dataset_name].resize((hdf_file[dataset_name].shape[0] + data.shape[0]), axis=0)
-                hdf_file[dataset_name][-data.shape[0]:] = data
-            else:
-                # Dataset doesn't exist, create it
-                hdf_file.create_dataset(dataset_name, data=data, maxshape=(None, None))
-
-        for index in indices:
-            # Load the processed results for the current index from the npz file
-            npz_file_path = output_fn + f'/processed_results_{index}.npz'
-            
-            try: 
-                with np.load(npz_file_path, mmap_mode='r') as data:
-                    datasets = ["P11l", "Pctl", "Ploopl", "IRPs11", "IRPsct", "IRPsloop","params"]
-                    # datasets = ["P11l", "Pctl", "Ploopl", "IRPs11", "IRPsct", "params"]
-
-                    for dataset in datasets:
-                        update_or_create_dataset(dataset, data[dataset])
-
-            except: 
-                print(f"could not load file for index: {index}")
+    return num_samps_per_index, lhd, prior_ranges, scratch, parameters_dicts, datasets, computation_function, cov_file, mu_file
 
 def main(indices, args): 
 
-    num_samps_per_index, lhd, prior_ranges, output_fn, N, eft_params, knots, cov_file,mu_file  = setup(args)
-
-    k_l, k_r = 1e-4, 0.7
-
+    num_samps_per_index, lhd, prior_ranges, scratch, parameters_dicts, datasets, computation_function, cov_file, mu_file = setup(args)
     #The sampled values from the LHC for each of the input parameters 
-    sampled_values = utils.sample_from_hypercube(lhd, prior_ranges, dist="multivariate_gaussian", \
-    cov_file = cov_file, mu_file = mu_file) 
-    kk = np.logspace(np.log10(k_l), np.log10(k_r), 10000) #ar update make this extremely large such that we are insensitive to interpolation errors!
-    #also match the counter-term with PyBird by default by stopping at k=10^-4/0.7
+    if cov_file is not None and mu_file is not None:
+        LOGGER.info("Sampling from multivariate gaussian distribution")
+        sampled_values = emu_utils.sample_from_hypercube(lhd, prior_ranges, dist="multivariate_gaussian", \
+        cov_file = cov_file, mu_file = mu_file)
+    
+    else:
+        LOGGER.info("Sampling from uniform distribution")
+        sampled_values = emu_utils.sample_from_hypercube(lhd, prior_ranges) 
 
     for index in indices: 
         start_index = index * num_samps_per_index
         end_index = start_index + num_samps_per_index
         sub_samples = sampled_values[start_index:end_index]
 
-        P11l_array = []
-        Pctl_array = []
-        Ploopl_array = []
-        IRPs11_array = []
-        IRPsct_array = []
-        IRPsloop_array = []
+        output_dict = {}
+        for dataset in datasets:
+            output_dict[dataset] = []
 
         params_array = []
-
         for sub_sample_ind in range(sub_samples.shape[0]):
-            print("working on sample", start_index+sub_sample_ind)
+            LOGGER.info(f"working on sample: {start_index+sub_sample_ind}")
 
             params = sub_samples[sub_sample_ind]
-
-            logpk_knots, pkmax, f = np.array(params[:-2]), params[-2], params[-1]
-
-            ipk_loglog_spline = utils.PiecewiseSpline_jax(knots, logpk_knots)
-
-            pk_lin = np.exp(ipk_loglog_spline(np.log(kk))) #In Mpc/h units everywhere
-
-            print("pk_lin input", pk_lin)
-
-            P11l, Pctl, Ploopl, IRPs11, \
-            IRPsct, IRPsloop = utils.get_pgg_from_linps_and_f_and_A(pk_lin, kk, eft_params, N, f, pkmax)
-
-            print("number of Nans p11l", np.count_nonzero(np.isnan(P11l)))
-            print("number of Nans Pctl", np.count_nonzero(np.isnan(Pctl)))
-            print("number of Nans IRPs11", np.count_nonzero(np.isnan(IRPs11)))
-            print("number of Nans IRPsct", np.count_nonzero(np.isnan(IRPsct)))
-            print("number of Nans IRPsloop", np.count_nonzero(np.isnan(IRPsloop)))
-            print("number of Nans Ploopl", np.count_nonzero(np.isnan(Ploopl)))
-
-            #append everything flattened 
-            P11l_array.append(P11l.flatten())
-            Pctl_array.append(Pctl.flatten())
-            Ploopl_array.append(Ploopl.flatten())
-            IRPs11_array.append(IRPs11.flatten())
-            IRPsct_array.append(IRPsct.flatten())
-            IRPsloop_array.append(IRPsloop.flatten()) 
+            outputs = computation_function(params, parameters_dicts)
+            for i, dataset in enumerate(datasets):
+                output_dict[dataset].append(outputs[i])
             params_array.append(params)
-
-        P11l_array = np.array(P11l_array)
-        Pctl_array = np.array(Pctl_array)
-        Ploopl_array = np.array(Ploopl_array)
-        IRPs11_array = np.array(IRPs11_array)
-        IRPsct_array = np.array(IRPsct_array)
-        IRPsloop_array = np.array(IRPsloop_array)
-
-        print("check this is not crazy")
-        print("maximum of array", np.amax(IRPsloop_array))
 
         params_array = np.array(params_array)
 
-        np.savez(output_fn + f'/processed_results_{index}.npz', params=params_array, P11l=P11l_array, \
-        Pctl=Pctl_array, Ploopl=Ploopl_array, IRPs11=IRPs11_array, IRPsct=IRPsct_array, IRPsloop=IRPsloop_array)
+        np.savez(scratch + f'/processed_results_{index}.npz', **{dataset: np.array(output_dict[dataset]) for dataset in datasets}, params=params_array)
         
         yield index
+
+    
+def merge(indices, args):
+    num_samps_per_index, lhd, prior_ranges, scratch, parameters_dicts, datasets, computation_function, cov_file, mu_file = setup(args)
+    with h5py.File(scratch + '/total_data.h5', 'a') as hdf_file:
+        for index in indices:
+            # Load the processed results for the current index from the npz file
+            npz_file_path = scratch + f'/processed_results_{index}.npz'
+            with np.load(npz_file_path, mmap_mode='r') as data:
+                for dataset in datasets+['params']:
+                    emu_utils.update_or_create_dataset(dataset, data[dataset], hdf_file)

@@ -11,16 +11,11 @@ parameters:
   prior:
   - 0.7
   - 1.2
-- name: sigma8
-  prior:
-  - 0.4
-  - 1.1
 - name: h
   prior:
   - 0.4
   - 1.0
-
 - name: z
   prior:
   - 0.0
-  - 3.5
+  - 4.0

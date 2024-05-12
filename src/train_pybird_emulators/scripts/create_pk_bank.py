@@ -3,6 +3,7 @@ import argparse
 from classy import Class
 from pyDOE import lhs
 import h5py
+from train_pybird_emulators.emu_utils import emu_utils
 
 
 def setup(args):
@@ -12,13 +13,12 @@ def setup(args):
     parser.add_argument('--n_k', type=int, default=100, help='Number of k values to use')
     parser.add_argument('--spec_per_ind', type=int, default=500, help='Number of spectra per index')
     parser.add_argument('--output_dir', type=str, default='pk_bank', help='Directory to save the power spectra')
-
+    parser.add_argument('--verbosity', type=str, default='warning', help='Verbosity level')
+    parser.add_argument('--k_l', type=float, default=1e-5, help='The value of k_l to use for the computation of the pybird pieces training data')
+    parser.add_argument('--k_r', type=float, default=1.0, help='The value of k_r to use for the computation of the pybird pieces training data')
     args = parser.parse_args(args)
 
-    # Define the ranges for your parameters: (min, max)
-
     planck_mean = {'omega_b': 0.02235, 'omega_cdm': 0.120, 'h': 0.675, 'ln10^{10}A_s': 3.044, 'n_s': 0.965, 'Omega_k': 0., 'N_ncdm': 1., 'm_ncdm': 0.06, 'T_ncdm': 0.71611, 'N_ur': 2.0329, 'w0_fld': -1, 'Omega_Lambda': 0.}
-
     lss_sigma = {'omega_b': 0.00035, 'omega_cdm': 0.010, 'h': 0.015, 'ln10^{10}A_s': 0.15, 'n_s': 0.060, 'w0_fld': 0.03, 'm_ncdm': 0.2, 'N_ur': 0.2, 'Omega_k': 0.05}
 
 
@@ -38,34 +38,6 @@ def setup(args):
 
     return args, param_ranges
 
-def merge(indices, args) 
-    args, param_ranges = setup(args)
-
-    with h5py.File(args.output_dir + '/total_data.h5', 'a') as hdf_file:
-        # Function to load and save data to HDF5
-        def update_or_create_dataset(dataset_name, data):
-            if dataset_name in hdf_file:
-                # Dataset exists, append the data to the existing dataset
-                hdf_file[dataset_name].resize((hdf_file[dataset_name].shape[0] + data.shape[0]), axis=0)
-                hdf_file[dataset_name][-data.shape[0]:] = data
-            else:
-                # Dataset doesn't exist, create it
-                hdf_file.create_dataset(dataset_name, data=data, maxshape=(None, None))
-
-        for index in indices:
-            # Load the processed results for the current index from the npz file
-            npz_file_path = args.output_dir + f'/pk_{index}.npz'
-
-            try:
-                with np.load(npz_file_path, mmap_mode='r') as data:
-                    datasets = ["pk_lin","params"]
-
-                    for dataset in datasets:
-                        update_or_create_dataset(dataset, data[dataset])
-
-            except:
-                print(f"could not load file for index: {index}")
-
 def main(indices, args):
 
     args, param_ranges = setup(args)
@@ -75,9 +47,8 @@ def main(indices, args):
 
     #set up the cosmology parameters
 
-
     #set up the k values to use
-    kk = np.logspace(-5, 1, args.n_k)
+    kk = np.logspace(args.k_l, args.k_r, args.n_k)
 
     #get the LHS samples 
     lhs_samples = lhs(n=len(param_ranges.keys()), samples=args.n_pk, criterion='center')
@@ -90,10 +61,8 @@ def main(indices, args):
 
     for index in indices: 
 
-            #set up the array to store the power spectra
         pk = np.zeros((args.spec_per_ind, args.n_k))
 
-        #Select a subset if of the scaled samples
         subset = {key: scaled_samples[key][index*args.spec_per_ind:(index+1)*(args.spec_per_ind)] for key in scaled_samples.keys()}
 
         for i in range(args.spec_per_ind):
@@ -113,10 +82,29 @@ def main(indices, args):
             pk[i] = np.array([cosmo.pk_lin(k*cosmo.h(), subset["z"][i])*cosmo.h()**3 for k in kk])
 
         
-        #turn all fo the parameter values stored in the subset dict into a numpy array
+        #turn all of the parameter values stored in the subset dict into a numpy array
         param_values = np.array([subset[key] for key in subset.keys()]).T
 
         np.savez(args.output_dir + "/pk_" + str(index), pk_lin=pk, params=param_values)
         
         yield indices 
+
+def merge(indices, args) 
+    args, param_ranges = setup(args)
+
+    with h5py.File(args.output_dir + '/total_data.h5', 'a') as hdf_file:
+
+        for index in indices:
+            # Load the processed results for the current index from the npz file
+            npz_file_path = args.output_dir + f'/pk_{index}.npz'
+
+            try:
+                with np.load(npz_file_path, mmap_mode='r') as data:
+                    datasets = ["pk_lin","params"]
+
+                    for dataset in datasets:
+                        emu_utils.update_or_create_dataset(dataset, data[dataset])
+
+            except:
+                print(f"could not load file for index: {index}")
 
