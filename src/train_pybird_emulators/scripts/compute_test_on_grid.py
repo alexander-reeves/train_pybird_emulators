@@ -1,5 +1,4 @@
 import numpy as np
-import utils
 import yaml
 from scipy.stats import qmc, norm, truncnorm, uniform
 import pybird
@@ -9,6 +8,7 @@ from pybird.correlator import Correlator
 from pybird.fftlog import FFTLog
 import h5py
 from classy import Class
+from train_pybird_emulators.emu_utils import emu_utils
 
 
 def setup(args):
@@ -44,7 +44,6 @@ def setup(args):
 
     knots = np.load(filename_knots)
 
-    kk = np.logspace(-5, 0, 200)
 
     with open(
         "/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/eft_params_boss_cmass_ngc_l0",

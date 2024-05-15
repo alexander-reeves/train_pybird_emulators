@@ -304,275 +304,37 @@ def get_logslope(x, f, side="left"):
     return A, n
 
 
-def compute_1loop_bpk_test(cosmo_dict, kk, eft_params, knots, resum=False):
+def compute_1loop_bpk(pk, f, D, z, kk, eft_params, knots, k_l, k_r, resum=False):
     """
-    Function to compute the difference between the reconstructed and original 1-loop biased tracer power spectrum
-    given an input cosmology dictionary and optimal knots
+    Function to compute the original pybird bpk prediction for later comparison with the emulator performance
     """
-
-    # hardcoded for now
-    k_l, k_r = 1e-4, 1.0  # In Mpc/h
-    kk_ = np.linspace(k_l, k_r, 100)
-
-    z = cosmo_dict["z"]
-
-    # knots = sorted(knots)
-    logknots = np.log(knots)
-
     # Maybe keep this outside function for speed
     N = Correlator()
-
-    if resum:
-        N.set(
-            {
-                "output": "bPk",
-                "multipole": 3,
-                "kmax": 0.4,
-                "fftaccboost": 2,  # boosting the FFTLog precision (slower, but ~0.1% more precise -> let's emulate this)
-                "with_resum": True,
-                "with_exact_time": True,
-                "km": 1.0,
-                "kr": 1.0,
-                "nd": 3e-4,
-                "eft_basis": "eftoflss",
-                "with_stoch": True,
-            }
-        )
-
-    else:
-        N.set(
-            {
-                "output": "bPk",
-                "multipole": 3,
-                "kmax": 0.4,
-                "fftaccboost": 2,  # boosting the FFTLog precision (slower, but ~0.1% more precise -> let's emulate this)
-                "with_resum": False,
-                "with_exact_time": True,
-                "km": 1.0,
-                "kr": 1.0,
-                "nd": 3e-4,
-                "eft_basis": "eftoflss",
-                "with_stoch": True,
-            }
-        )
-
-    # First use class to compute the linear growth factor and the f growth factor
-    M = Class()
-    keys_to_exclude = ["z", "pk_max"]
-    cosmo = {k: v for k, v in cosmo_dict.items() if k not in keys_to_exclude}
-    M.set(cosmo)
-    M.set({"output": "mPk", "P_k_max_h/Mpc": 5, "z_max_pk": cosmo_dict["z"]})
-    M.compute()
-    pk_class = np.array(
-        [M.pk_lin(k * M.h(), cosmo_dict["z"]) * M.h() ** 3 for k in kk]
-    )  # k in Mpc/h, pk in (Mpc/h)^3
-
-    # Linear growth factor and other pieces required
-    A_s, Omega0_m = 1e-10 * np.exp(cosmo["ln10^{10}A_s"]), M.Omega0_m()
-    A = np.max(pk_class)
-    D1, f1 = (
-        M.scale_independent_growth_factor(cosmo_dict["z"]),
-        M.scale_independent_growth_factor_f(cosmo_dict["z"]),
+    N.set(
+        {
+            "output": "bPk",
+            "multipole": 3,
+            "kmax": 0.4,
+            "fftaccboost": 2,  # boosting the FFTLog precision (slower, but ~0.1% more precise -> let's emulate this)
+            "with_resum": resum,
+            "with_exact_time": True,
+            "km": 1.0,
+            "kr": 1.0,
+            "nd": 3e-4,
+            "eft_basis": "eftoflss",
+            "with_stoch": True,
+        }
     )
 
     N.compute(
-        {"kk": kk, "pk_lin": pk_class, "D": D1, "f": f1, "z": z, "Omega0_m": Omega0_m},
+        {"kk": kk, "pk_lin": pk, "D": D, "f": f, "z": z, "Omega0_m": Omega0_m},
         do_core=True,
         do_survey_specific=True,
     )
 
     bpk_true = N.get(eft_params)
 
-    # Now use the emulator for the same thing
-    N2 = Correlator()
-
-    if resum:
-        N2.set(
-            {
-                "output": "bPk",
-                "multipole": 3,
-                "kmax": 0.4,
-                "fftaccboost": 2,  # boosting the FFTLog precision (slower, but ~0.1% more precise -> let's emulate this)
-                "with_resum": True,
-                "with_exact_time": True,
-                "with_time": False,  # time unspecified
-                "km": 1.0,
-                "kr": 1.0,
-                "nd": 3e-4,
-                "eft_basis": "eftoflss",
-                "with_stoch": True,
-                # "with_uvmatch_2": True,
-                "with_emu": True,
-                "emu_path": "/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/saved_models/stronger_cuts",
-                "knots_path": "/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/final_knots_55.npy",
-            }
-        )
-
-    else:
-        N2.set(
-            {
-                "output": "bPk",
-                "multipole": 3,
-                "kmax": 0.4,
-                "fftaccboost": 2,  # boosting the FFTLog precision (slower, but ~0.1% more precise -> let's emulate this)
-                "with_resum": False,
-                "with_exact_time": True,
-                "with_time": False,  # time unspecified
-                "km": 1.0,
-                "kr": 1.0,
-                "nd": 3e-4,
-                "eft_basis": "eftoflss",
-                "with_stoch": True,
-                # "with_uvmatch_2": True,
-                "with_emu": True,
-                "emu_path": "/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/saved_models/stronger_cuts",
-                "knots_path": "/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/final_knots_55.npy",
-            }
-        )
-
-    N2.compute(
-        {
-            "kk": kk,
-            "pk_lin": pk_class,
-            "pk_lin_2": pk_class,
-            "D": D1,
-            "f": f1,
-            "z": z,
-            "Omega0_m": Omega0_m,
-        },
-        do_core=True,
-        do_survey_specific=False,
-        correlator_engine=True,
-    )
-
-    N2.compute(
-        {"D": 1.0, "f": f1, "z": z, "Omega0_m": Omega0_m, "A": A, "kmax": 0.4},
-        do_core=False,
-        do_survey_specific=True,
-        correlator_engine=True,
-    )
-
-    bpk_emu = N2.get(eft_params)
-
-    print(bpk_true / bpk_emu)
-
-    return bpk_true, bpk_emu
-
-
-def compute_1loop_mps_test(cosmo_dict, kk, eft_params, knots):
-    """
-    Function to compute the difference between the reconstructed and original 1-loop matter power given
-    an input cosmology dictionary and optimal knots
-    """
-    # hardcoded for now
-    k_l, k_r = 1e-4, 1.0  # In Mpc/h
-    kk_ = np.linspace(k_l, k_r, 100)
-
-    knots = sorted(knots)
-    logknots = np.log(knots)
-
-    # Maybe keep this outside function for speed this sets up for real-space mps
-    N = Correlator()
-
-    pybird_config = {
-        "output": "mPk",
-        "multipole": 3,
-        "kmax": 0.6,
-        "km": 0.7,
-        "kr": 0.35,
-        "nd": 1e-2,  # these scales control the various EFT expansions...
-        "eft_basis": "eftoflss",
-        "with_stoch": False,  # there are various equivalent EFT parametrization one can choose
-        "with_resum": True,  #####
-        "fftbias": -1.6,
-    }
-
-    N.set(pybird_config)
-
-    # First use class to compute the linear growth factor and the f growth factor
-    M = Class()
-    keys_to_exclude = ["z", "pk_max"]
-    cosmo = {k: v for k, v in cosmo_dict.items() if k not in keys_to_exclude}
-    M.set(cosmo)
-    M.set({"output": "mPk", "P_k_max_h/Mpc": 5, "z_max_pk": cosmo_dict["z"]})
-    M.compute()
-    pk_class = np.array(
-        [M.pk_lin(k * M.h(), cosmo_dict["z"]) * M.h() ** 3 for k in kk]
-    )  # k in Mpc/h, pk in (Mpc/h)^3
-
-    # Make the spline for the linear MPS
-    pk_max = np.max(pk_class)
-    ilogpk = interp1d(
-        np.log(kk), np.log(pk_class / pk_max), kind="cubic"
-    )  # normalized interpolation
-
-    logpk_knots = ilogpk(logknots)
-
-    pkk_ = np.exp(ilogpk(np.log(kk_)))
-
-    A_l, n_l = get_logslope(kk_, pkk_, side="left")
-    A_r, n_r = get_logslope(kk_, pkk_, side="right")
-
-    pk_l = A_l * k_l**n_l
-    pk_r = A_r * k_r**n_r
-
-    dpk_l = A_l * n_l * k_l ** (n_l - 1.0)
-    dpk_r = A_r * n_r * k_r ** (n_r - 1.0)
-
-    dlogpk_l = k_l / pk_l * dpk_l
-    dlogpk_r = k_r / pk_r * dpk_r
-
-    ilogpk_spline = PiecewiseSpline(knots, logpk_knots, dlogpk_l, dlogpk_r)
-
-    # recover the linear matter power spectrum from spline
-    pk_lin_rec = np.exp(ilogpk_spline(np.log(kk))) * pk_max
-
-    # Finally match up the tails in k_l or k_r
-    mask = (kk < k_l) | (kk > k_r)
-    pk_class[mask] = pk_lin_rec[mask]
-
-    # Linear growth factor and other pieces required
-    A_s, Omega0_m = 1e-10 * np.exp(cosmo_dict["ln10^{10}A_s"]), M.Omega0_m()
-    D1, f1 = (
-        M.scale_independent_growth_factor(cosmo_dict["z"]),
-        M.scale_independent_growth_factor_f(cosmo_dict["z"]),
-    )
-
-    N.compute(
-        {
-            "kk": kk,
-            "pk_lin": pk_class,
-            "pk_lin_2": pk_class,
-            "D": D1,
-            "f": f1,
-            "z": cosmo_dict["z"],
-            "Omega0_m": Omega0_m,
-            "A": 1.0,
-        },
-        do_core=True,
-        do_survey_specific=True,
-    )
-
-    mpk_orig = N.get(eft_params)
-
-    N.compute(
-        {
-            "kk": kk,
-            "pk_lin": pk_class,
-            "pk_lin_2": pk_lin_rec,
-            "D": D1,
-            "f": f1,
-            "z": cosmo_dict["z"],
-            "Omega0_m": Omega0_m,
-            "A": 1.0,
-        },
-        do_core=True,
-        do_survey_specific=True,
-    )
-
-    mpk_rec = N.get(eft_params)
-
-    return mpk_orig, mpk_rec
+    return bpk_true
 
 
 def test_1loop_sparsity(cosmo_dict, kk, eft_params):
@@ -766,7 +528,7 @@ def update_or_create_dataset(dataset_name, data, hdf_file):
         hdf_file[dataset_name][-data.shape[0] :] = data
     else:
         # Dataset doesn't exist, create it
-        if dataset_name == "params":
+        if dataset_name in ["params", "pk_lin"]:
             maxshape = (None, data.shape[1])
         else:
             maxshape = (None,)
