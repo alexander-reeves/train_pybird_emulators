@@ -4,6 +4,6 @@ A package to train JAX-based emulators for PyBird
 
 
 ## Features
-
+- bispectrum
 * TODO
 
