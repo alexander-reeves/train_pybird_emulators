@@ -1,0 +1,10 @@
+# In the parameters section one can define global variables. When submitting the jobs epipe will replace them in the commands (see below)
+- parameters:
+    - executable1: generate_training_data.py
+    - n_jobs: 3000
+    - num_samps_per_index: 300
+    - n_gridpoints: 900000 #Should be the product of the previous two numbers 
+
+#--n_jobs=$[n_jobs]
+- name: generate_training_data_test
+  cmd: esub $[executable1] --tasks='0>3000' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=6096 --system=slurm --num_samps_per_index=$[num_samps_per_index] --n_gridpoints=$[n_gridpoints] --filename_config='config_80_kbins_5sigma.yaml' --filename_knots='/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/final_knots_80.npy' --merge_memory=8192 --watchdog_time=24 --ede --spectra_subset=wl_alone

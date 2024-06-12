@@ -1,0 +1,32 @@
+# Copyright (C) 2023 ETH Zurich, Institute for Particle Physics and Astrophysics
+
+# Created on Nov 22
+# Author: Alexander Reeves
+
+
+# In the parameters section one can define global variables. When submitting the jobs epipe will replace them in the commands (see below)
+- parameters:
+    - executable1: train_model_gpu.py
+    - source_file: source.sh
+
+
+# - name: train_emu_ploopl_monopole_80_knots
+#   cmd: esub $[executable1] --source_file=$[source_file] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=20 --main_gpu=1 --main_gpu_memory=80000 --mode=jobarray --function=main --main_memory=4096  --model_name=ploopl_mono_80knots_512_5_layers_normal_cov --training_data_file="/cluster/scratch/areeves/pybird_emu_training_data_80_knots/total_data.h5" --epochs=1500 --ntrain=900000 --piece_name=Ploopl --system=slurm --mono 
+
+# - name: train_emu_ploopl_monopole_log_80_knots
+#   cmd: esub $[executable1] --source_file=$[source_file] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=20 --main_gpu_memory=80000 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --model_name=ploopl_mono_log_with_rescale_k_2 --training_data_file="/cluster/scratch/areeves/pybird_emu_training_data_125_knots/total_data.h5" --epochs=1000 --ntrain=600000 --piece_name=Ploopl --system=slurm --mono --log_preprocess
+
+# - name: train_emu_ploopl_quad_hex
+#   cmd: esub $[executable1] --source_file=$[source_file] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=20 --main_gpu=1 --main_gpu_memory=80000  --mode=jobarray --function=main --main_memory=4096  --model_name=ploopl_quad_hex_80knots_512_5_layers_normal_cov --training_data_file="/cluster/scratch/areeves/pybird_emu_training_data_80_knots/total_data.h5" --epochs=1500 --ntrain=900000 --piece_name=Ploopl --system=slurm --quad_hex
+
+# - name: train_emu_irps11
+#   cmd: esub $[executable1] --source_file=$[source_file] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --model_name=irps11_80knots --training_data_file="/cluster/scratch/areeves/pybird_emu_training_data_80_knots/total_data.h5" --epochs=1500 --ntrain=900000 --piece_name=IRPs11 --system=slurm 
+
+# - name: train_emu_irpsct
+#   cmd: esub $[executable1] --source_file=$[source_file] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --model_name=irpsct_80knots --training_data_file="/cluster/scratch/areeves/pybird_emu_training_data_80_knots/total_data.h5" --epochs=1500 --ntrain=900000 --piece_name=IRPsct --system=slurm 
+
+# - name: train_emu_irpsloop_mono
+#   cmd: esub $[executable1] --source_file=$[source_file] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --model_name=irpsloop_mono_80knots --training_data_file="/cluster/scratch/areeves/pybird_emu_training_data_80_knots/total_data.h5" --epochs=1500 --ntrain=900000 --piece_name=IRPsloop --system=slurm --mono
+
+- name: train_emu_irpsloop_quad_hex
+  cmd: esub $[executable1] --source_file=$[source_file] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000  --model_name=irpsloop_quad_hex_80knots_log --training_data_file="/cluster/scratch/areeves/pybird_emu_training_data_80_knots/total_data.h5" --epochs=1500 --ntrain=900000 --piece_name=IRPsloop --system=slurm --quad_hex 

@@ -18,25 +18,47 @@ import importlib, pybird
 importlib.reload(pybird.correlator)
 from pybird.correlator import Correlator
 import argparse
-import utils
+#import utils
+from train_pybird_emulators.emu_utils import emu_utils as utils
+
 
 def to_Mpc_per_h(_pk, _kk, h):
     ilogpk_ = interp1d(np.log(_kk), np.log(_pk), fill_value='extrapolate')
     return np.exp(ilogpk_(np.log(_kk*h))) * h**3
 
+# def load_pk_cosmo_dict(file_path, nbank, kk):
+#     indices = np.random.randint(low=0,high=50000,size=nbank)
+#     with open(file_path + 'lhc_cosmo_dict.pkl', 'rb') as f:
+#         lhc_cosmo_dicts = pickle.load(f)
+#     lhc_pk_lin = []
+#     with h5py.File(file_path + 'lhc_pk_lins.h5', 'r') as f:
+#         for i in indices:
+#             print(i)
+#             print(f[str(i)])
+#             lhc_pk_lin.append(to_Mpc_per_h(f[str(i)][:], kk, lhc_cosmo_dicts[i]['h']))
+
+#     #Append to array and convert units
+#     lhc_pk_lin = np.array(lhc_pk_lin)
+
+#     return lhc_cosmo_dicts, lhc_pk_lin, nbank, indices
+
 def load_pk_cosmo_dict(file_path, nbank, kk):
-    indices = np.random.randint(low=0,high=50000,size=nbank)
+    indices = np.random.randint(low=0,high=5000,size=nbank)
     with open(file_path + 'lhc_cosmo_dict.pkl', 'rb') as f:
         lhc_cosmo_dicts = pickle.load(f)
     lhc_pk_lin = []
     with h5py.File(file_path + 'lhc_pk_lins.h5', 'r') as f:
+        keys=list(f.keys())
         for i in indices:
-            lhc_pk_lin.append(to_Mpc_per_h(f[str(i)][:], kk, lhc_cosmo_dicts[i]['h']))
+            #lhc_pk_lin.append(to_Mpc_per_h(f[str(i)][:], kk, lhc_cosmo_dicts[i]['h']))
+            lhc_pk_lin.append(to_Mpc_per_h(f[keys[i]][:], kk, lhc_cosmo_dicts[i]['h']))
+
 
     #Append to array and convert units
     lhc_pk_lin = np.array(lhc_pk_lin)
 
     return lhc_cosmo_dicts, lhc_pk_lin, nbank, indices
+
 
 def load_pk_cosmo_dict_new(file_path, nbank, kk):
     with h5py.File(file_path + 'total_data.h5', 'r') as f:
@@ -132,7 +154,8 @@ def setup(args):
 
 
     k_l, k_r =  1e-4, 1.0 #In Mpc/h
-    kk = np.linspace(k_l, k_r, 500)
+    #kk = np.linspace(k_l, k_r, 500)
+    kk = np.linspace(k_l, k_r, 200)
     mask = (kk < k_l) | (kk > k_r)
     kk_ = kk[~mask]
     dk = kk_[1:]-kk_[:-1]
@@ -198,8 +221,10 @@ def main(indices, args):
         # except FileNotFoundError:
         #random ICs for MonteCarlo search 
 
-        nlog = 55
-        nlog_lowk = 15
+        # nlog = 55
+        # nlog_lowk = 15
+        nlog = 45
+        nlog_lowk = 5
         knots_log_low_k = np.geomspace(k_l,1e-2, nlog_lowk, endpoint=False)
         knots_lin = np.linspace(1e-2, 0.2, nknots-nlog-nlog_lowk, endpoint=False) 
         knots_log = np.geomspace(0.2,k_r, nlog)

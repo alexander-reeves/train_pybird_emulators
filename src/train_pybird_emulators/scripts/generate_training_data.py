@@ -1,5 +1,7 @@
 import numpy as np
-import utils
+#import utils
+from train_pybird_emulators.emu_utils import emu_utils as utils
+
 import yaml
 from scipy.stats import qmc, norm, truncnorm, uniform
 import pybird 
@@ -26,7 +28,7 @@ def setup(args):
     args = parser.parse_args(args)
 
 
-    output_fn = '/cluster/scratch/areeves/pybird_emu_training_data_80_knots'
+    output_fn = '/Users/zhiyulu/Documents/Github/train_pybird_emulators/src/train_pybird_emulators/scripts/pybird_emu_training_data_80_knots'
    
     num_samps_per_index = args.num_samps_per_index 
     filename_config = args.filename_config
@@ -34,6 +36,9 @@ def setup(args):
     n_gridpoints = args.n_gridpoints
 
     config_loaded = utils.read_yaml_file(filename_config)
+    # print(len(config_loaded))
+    # print(config_loaded[0])
+    # print(config_loaded[1])
     parameters = config_loaded['parameters']
     knots = np.load(filename_knots)
 
@@ -43,11 +48,14 @@ def setup(args):
 
     prior_ranges = np.zeros((num_params, 2))
     for i, parameter in enumerate(parameters):
+        print('===========')
+        print(parameter)
         prior_ranges[i] = parameter['prior']
 
     dimension = len(parameters)
 
     lhd = qmc.LatinHypercube(d=dimension).random(n=n_gridpoints)
+    print('.......',lhd.shape)
 
     N = Correlator()
 
@@ -60,11 +68,13 @@ def setup(args):
        'eft_basis': 'eftoflss', 'with_stoch': True})
 
 
-    with open("/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/eft_params_boss_cmass_ngc_l0", 'rb') as f:
+    with open("/Users/zhiyulu/Documents/Science/Cosmology_packages/LSS/FreqCosmo-alex/hpc_work/eft_params_boss_cmass_ngc_l0", 'rb') as f:
         eft_params = pickle.load(f)
     
-    cov_file = f"/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/covariance_{knots.shape[0]}_knots.npy"
-    mu_file = f"/cluster/work/refregier/alexree/frequentist_framework/FreqCosmo/hpc_work/mu_{knots.shape[0]}_knots.npy"
+    # cov_file = f"/Users/zhiyulu/Documents/Science/Cosmology_packages/LSS/FreqCosmo-alex/hpc_work/covariance_{knots.shape[0]}_knots.npy"
+    # mu_file = f"/Users/zhiyulu/Documents/Science/Cosmology_packages/LSS/FreqCosmo-alex/hpc_work/mu_{knots.shape[0]}_knots.npy"
+    cov_file = f"/Users/zhiyulu/Documents/Science/Cosmology_packages/LSS/FreqCosmo-alex/hpc_work/covariance_55_knots.npy"
+    mu_file = f"/Users/zhiyulu/Documents/Science/Cosmology_packages/LSS/FreqCosmo-alex/hpc_work/mu_55_knots.npy"
 
     return num_samps_per_index, lhd, prior_ranges, output_fn, N, eft_params, knots, cov_file,mu_file
 
@@ -106,8 +116,10 @@ def main(indices, args):
     k_l, k_r = 1e-4, 0.7
 
     #The sampled values from the LHC for each of the input parameters 
+    print('====',lhd.shape)
     sampled_values = utils.sample_from_hypercube(lhd, prior_ranges, dist="multivariate_gaussian", \
     cov_file = cov_file, mu_file = mu_file) 
+    print('gt main',sampled_values.shape)
     kk = np.logspace(np.log10(k_l), np.log10(k_r), 10000) #ar update make this extremely large such that we are insensitive to interpolation errors!
     #also match the counter-term with PyBird by default by stopping at k=10^-4/0.7
 
@@ -130,8 +142,11 @@ def main(indices, args):
 
             params = sub_samples[sub_sample_ind]
 
-            logpk_knots, pkmax, f = np.array(params[:-2]), params[-2], params[-1]
+            #logpk_knots, pkmax, f = np.array(params[:-2]), params[-2], params[-1]
+            logpk_knots, pkmax, f = np.array(params), params[-2], params[-1]
 
+            print(knots.shape)
+            print(logpk_knots.shape)
             ipk_loglog_spline = utils.PiecewiseSpline_jax(knots, logpk_knots)
 
             pk_lin = np.exp(ipk_loglog_spline(np.log(kk))) #In Mpc/h units everywhere

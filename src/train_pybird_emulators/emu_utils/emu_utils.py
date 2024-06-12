@@ -44,7 +44,11 @@ def sample_from_hypercube(lhc, prior_ranges, dist="uniform", cov_file=None, mu_f
 
         # Transform LHC samples using inverse of univariate Gaussian CDF
         transformed_lhc = norm.ppf(lhc)
-        sampled_values = mu_vector + transformed_lhc @ cholesky_decomposition.T
+        print(mu_vector.shape)
+        print(transformed_lhc.shape)
+        print(cholesky_decomposition.shape)
+        #sampled_values = mu_vector + transformed_lhc @ cholesky_decomposition.T
+        sampled_values = mu_vector + transformed_lhc.T @ cholesky_decomposition
 
         return sampled_values
 
