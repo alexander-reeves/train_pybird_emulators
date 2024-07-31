@@ -1,7 +1,6 @@
 import numpy as np
 #import utils
 from train_pybird_emulators.emu_utils import emu_utils as utils
-
 import yaml
 from scipy.stats import qmc, norm, truncnorm, uniform
 import pybird 

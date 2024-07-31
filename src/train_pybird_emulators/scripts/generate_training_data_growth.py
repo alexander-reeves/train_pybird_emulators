@@ -1,5 +1,5 @@
 import numpy as np
-import utils
+from train_pybird_emulators.emu_utils import emu_utils as utils
 import yaml
 from scipy.stats import qmc, norm, truncnorm, uniform
 import pybird 
@@ -25,7 +25,7 @@ def setup(args):
     args = parser.parse_args(args)
 
 
-    output_fn = '/cluster/scratch/areeves/pybird_emu_growth_training_data'
+    output_fn = './pybird_emu_growth_training_data'
    
     num_samps_per_index = args.num_samps_per_index 
     filename_config = args.filename_config
