@@ -80,7 +80,7 @@ def setup(args):
 
 
 def merge(indices, args):
-    
+    print('=================================')
     num_samps_per_index, lhd, prior_ranges, output_fn, N, eft_params, knots, cov_file,mu_file = setup(args)
     
     with h5py.File(output_fn + '/total_data.h5', 'a') as hdf_file:
