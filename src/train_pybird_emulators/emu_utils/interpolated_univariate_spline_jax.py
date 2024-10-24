@@ -8,6 +8,7 @@ from jax.numpy import concatenate
 from jax.numpy import ones
 from jax.numpy import zeros
 from jax.tree_util import register_pytree_node_class
+import jax.numpy as jnp
 
 
 @register_pytree_node_class

@@ -41,6 +41,8 @@ def setup(args):
     parser.add_argument("--pca_preprocess", default=False, action="store_true")
     parser.add_argument("--mono", default=False, action="store_true")
     parser.add_argument("--quad_hex", default=False, action="store_true")
+    parser.add_argument("--quad_alone", default=False, action="store_true")
+    parser.add_argument("--hex_alone", default=False, action="store_true")
     parser.add_argument("--rescale", default=False, action="store_true")
     parser.add_argument("--mask_high_k", default=False, action="store_true")
     parser.add_argument("--npca", type=int, required=False, default=64)
@@ -59,13 +61,9 @@ def setup(args):
 
     if args.rescale:
         cov = emu_utils.get_default_cov()
+        print("cov shape", cov.shape)
         flattened_rescale_factor = np.diag(cov)
 
-        if log_preprocess:
-            LOGGER.info(
-                "Using log preprocessing so setting rescaling factor to one power of k extra"
-            )
-            flattened_rescale_factor = np.ones_like(np.diag(cov)) / np.repeat(k_emu, 3)
     else:
         flattened_rescale_factor = None
 
@@ -73,15 +71,21 @@ def setup(args):
 
 
 def main(indices, args):
-
     for index in indices:
+        args, flattened_rescale_factor = setup(args)
+
+        args.mask_high_k = False
+
+        if args.mask_high_k:
+            k_array_length = 97 #legacy training data went to k-max = 0.6
+        else: 
+            k_array_length=77
 
         # check if a GPU is being used by tensorflow
         LOGGER.info(
             f"Num GPUs Available: {len(tf.config.experimental.list_physical_devices('GPU'))}"
         )
 
-        args, flattened_rescale_factor = setup(args)
 
         x_train, y_train = emu_utils.get_training_data_from_hdf5(
             args.training_data_file,
@@ -89,6 +93,9 @@ def main(indices, args):
             args.ntrain,
             args.mono,
             args.quad_hex,
+            args.quad_alone,
+            args.hex_alone,
+            args.mask_high_k
         )
 
         if args.training_data_file_2:
@@ -98,39 +105,56 @@ def main(indices, args):
                 args.ntrain2,
                 args.mono,
                 args.quad_hex,
+                args.quad_alone,
+                args.hex_alone,
+                args.mask_high_k
             )
             x_train = np.concatenate((x_train, x_train_2), axis=0)
             y_train = np.concatenate((y_train, y_train_2), axis=0)
 
         if flattened_rescale_factor is not None:
-            num_patterns = y_train.shape[1] // 97
+            num_patterns = y_train.shape[1] // k_array_length
             rescaling_factor = emu_utils.generate_repeating_array(
                 flattened_rescale_factor, 77, num_patterns // 3
             )
-            if mono:
+            if args.mono:
                 rescaling_factor = emu_utils.generate_repeating_array(
                     flattened_rescale_factor, 77, num_patterns
                 )
                 rescaling_factor = rescaling_factor[: 35 * 77]
-            if quadhex:
+            if args.quad_hex:
                 rescaling_factor = emu_utils.generate_repeating_array(
                     flattened_rescale_factor, 77, 35
                 )
                 rescaling_factor = rescaling_factor[35 * 77 :]
-            if not mono and not quadhex:
+            
+            if args.quad_alone:
+                rescaling_factor = emu_utils.generate_repeating_array(
+                    flattened_rescale_factor, 77, 35
+                )
+                rescaling_factor = rescaling_factor[35 * 77 : 2*35*77]
+
+            if args.hex_alone:
+                rescaling_factor = emu_utils.generate_repeating_array(
+                    flattened_rescale_factor, 77, 35
+                )
+                rescaling_factor = rescaling_factor[2*35*77:]
+
+            if not args.mono and not args.quad_hex and not args.quad_alone and not args.hex_alone:
                 rescaling_factor = rescaling_factor
+
             rescaling_factor = np.array(rescaling_factor)
         else:
             rescaling_factor = None
 
         if args.mask_high_k:
-            if k_emu.shape[0] != y_train.shape[1]:
+            if y_train.shape[1] % k_emu.shape[0] != 0:
                 LOGGER.info("starting to mask out some high k")
                 num_patterns = y_train.shape[1] // k_pybird.shape[0]
                 LOGGER.info(f"num_patterns: {num_patterns}")
                 single_mask = np.array(
                     [True] * k_emu.shape[0]
-                    + [False] * (k_pybird.shape[1] - k_emu.shape[0])
+                    + [False] * (k_pybird.shape[0] - k_emu.shape[0])
                 )
 
                 # Repeat the mask for num_patterns times
@@ -144,26 +168,43 @@ def main(indices, args):
 
         # Filter out bad indices
         if args.piece_name is not None:
-            LOGGER.info(f"filtering out bad indices for piece {piece_name}")
+            LOGGER.info(f"filtering out bad indices for piece {args.piece_name}")
 
             condition_1 = np.any(x_train[:, :-2] > 0, axis=1)
             condition_2 = x_train[:, -1] < 0
             condition_3 = x_train[:, -2] < 0
+            bad_inds = np.where(condition_1 | condition_2 | condition_3 )[0]
 
-            bad_inds = np.where(condition_1 | condition_2 | condition_3)[0]
+            # gradients = np.abs(np.diff(y_train, axis=1))
 
-            if piece_name.startswith("I"):
-                print("training IR piece... going to filter out large gradients")
+            # gradient_threshold = np.quantile(
+            #     gradients, 0.95
+            # )  # top 20% of gradients
+
+            # # spikes typically happen around high k
+            # spike_positions = np.arange(
+            #     k_emu.shape[0] - 1, gradients.shape[1], k_emu.shape[0]
+            # )  # Adjust for 0-index and diff output size
+
+            # # Condition to identify rows with gradient spikes at specific positions
+            # condition_4 = np.any(
+            #     gradients[:, spike_positions] > gradient_threshold, axis=1
+            # )
+
+            # bad_inds = np.where(condition_1 | condition_2 | condition_3 | condition_4)[0]
+
+            if args.piece_name.startswith("I"):
+                print("training IR piece... going to filter out more large gradients")
                 # Calculate the absolute gradients along each row
                 gradients = np.abs(np.diff(y_train, axis=1))
 
                 gradient_threshold = np.quantile(
-                    gradients, 0.70
-                )  # top 30% of gradients
+                    gradients, 0.85
+                )  # top 15% of gradients
 
                 # spikes typically happen around high k
                 spike_positions = np.arange(
-                    k_emu.shape[0] - 7, gradients.shape[1], k_emu.shape[0]
+                    k_emu.shape[0] - 1, gradients.shape[1], k_emu.shape[0]
                 )  # Adjust for 0-index and diff output size
 
                 # Condition to identify rows with gradient spikes at specific positions
@@ -171,8 +212,17 @@ def main(indices, args):
                     gradients[:, spike_positions] > gradient_threshold, axis=1
                 )
 
+                condition_5 = x_train[:, -2] > 35000
+
+                # gradients_first_5 = np.diff(x_train[:, :6], axis=1)  # Shape: (num_samples, 10)
+
+                # # # Identify negative gradients
+                # negative_gradients = gradients_first_5 < 0  # Shape: (num_samples, 10)
+
+                # condition_5 = np.any(negative_gradients, axis=1)
+
                 bad_inds = np.where(
-                    condition_1 | condition_2 | condition_3 | condition_4
+                    condition_1 | condition_2 | condition_3 | condition_4 | condition_5
                 )[0]
 
             LOGGER.info(f"removing {len(bad_inds)} bad indices")
@@ -182,12 +232,15 @@ def main(indices, args):
         # Are there places where all the columns in the data are zero?
         zero_columns = np.where(np.sum(np.abs(y_train), axis=0) == 0)[0]
 
-        if zero_columns.size > 0:
-            LOGGER.info(f"removing zero columns for piece {piece_name}")
+        if zero_columns is not None and zero_columns.shape[0] > 0:
+            LOGGER.info(f"removing zero columns for piece {args.piece_name}")
             # remove and save zero columns indices
-            np.save(f"zero_coumns_{piece_name}", zero_columns)
+            np.save(f"zero_coumns_{args.piece_name}", zero_columns)
             y_train = np.delete(y_train, zero_columns, axis=1)
-            rescaling_factor = np.delete(rescaling_factor, zero_columns, axis=0)
+            print("zero columns", zero_columns)
+            print("rescaling factor:", rescaling_factor)
+            if rescaling_factor is not None:
+                rescaling_factor = np.delete(rescaling_factor, zero_columns, axis=0)
 
         ##Log pre-processing
         if args.log_preprocess:
@@ -227,15 +280,15 @@ def main(indices, args):
 
         keras_model = integrated_model.create_model(
             input_dim=x_train.shape[1],
-            hidden_layers=[256, 256, 256],
+            hidden_layers=[256,256,256],
             output_dim=y_train.shape[1],
         )
 
         # Initialize model and train
         model = integrated_model.IntegratedModel(
             keras_model,
-            input_scaler=None,
-            output_scaler=None,
+            input_scaler=input_scaler,
+            output_scaler=output_scaler,
             offset=offset,
             log_preprocess=args.log_preprocess,
             temp_file=f"saved_models/{args.model_name}_temp",

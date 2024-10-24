@@ -3,7 +3,7 @@ parameters:
   prior:
   - 0.1
   - 0.9
-- name: w0
+- name: w0_fld
   prior:
   - -3
   - -0.1

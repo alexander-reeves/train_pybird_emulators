@@ -1,0 +1,329 @@
+parameters:
+- name: pk_knot_1
+  prior:
+  - -41.56076438135551
+  - 0
+- name: pk_knot_2
+  prior:
+  - -40.2585978240933
+  - 0
+- name: pk_knot_3
+  prior:
+  - -38.96917309862385
+  - 0
+- name: pk_knot_4
+  prior:
+  - -37.69352119741824
+  - 0
+- name: pk_knot_5
+  prior:
+  - -36.43276519978836
+  - 0
+- name: pk_knot_6
+  prior:
+  - -35.18812699795085
+  - 0
+- name: pk_knot_7
+  prior:
+  - -33.96093376778298
+  - 0
+- name: pk_knot_8
+  prior:
+  - -32.75262387353263
+  - 0
+- name: pk_knot_9
+  prior:
+  - -31.564751799847627
+  - 0
+- name: pk_knot_10
+  prior:
+  - -30.398849144916664
+  - 0
+- name: pk_knot_11
+  prior:
+  - -29.25691863354795
+  - 0
+- name: pk_knot_12
+  prior:
+  - -28.140259655164428
+  - 0
+- name: pk_knot_13
+  prior:
+  - -27.051043800164603
+  - 0
+- name: pk_knot_14
+  prior:
+  - -25.97522485172059
+  - 0
+- name: pk_knot_15
+  prior:
+  - -24.853765345197807
+  - 0
+- name: pk_knot_16
+  prior:
+  - -24.696760853322214
+  - 0
+- name: pk_knot_17
+  prior:
+  - -24.24881845482956
+  - 0
+- name: pk_knot_18
+  prior:
+  - -23.745322756353257
+  - 0
+- name: pk_knot_19
+  prior:
+  - -23.149710352937017
+  - 0
+- name: pk_knot_20
+  prior:
+  - -22.39696040025955
+  - 0
+- name: pk_knot_21
+  prior:
+  - -21.39255073014269
+  - 0
+- name: pk_knot_22
+  prior:
+  - -19.93667243498088
+  - 0
+- name: pk_knot_23
+  prior:
+  - -17.854520094363515
+  - 0
+- name: pk_knot_24
+  prior:
+  - -15.936399545968257
+  - 0
+- name: pk_knot_25
+  prior:
+  - -14.267700815304595
+  - 0
+- name: pk_knot_26
+  prior:
+  - -12.785364122555965
+  - 0
+- name: pk_knot_27
+  prior:
+  - -11.395297980080956
+  - 0
+- name: pk_knot_28
+  prior:
+  - -9.948521268055641
+  - 0
+- name: pk_knot_29
+  prior:
+  - -9.062697310854336
+  - 0
+- name: pk_knot_30
+  prior:
+  - -8.79096710784112
+  - 0
+- name: pk_knot_31
+  prior:
+  - -8.545998838530625
+  - 0
+- name: pk_knot_32
+  prior:
+  - -8.32164881323828
+  - 0
+- name: pk_knot_33
+  prior:
+  - -8.113231876285713
+  - 0
+- name: pk_knot_34
+  prior:
+  - -7.917366147234297
+  - 0
+- name: pk_knot_35
+  prior:
+  - -7.731803288777585
+  - 0
+- name: pk_knot_36
+  prior:
+  - -7.554988660381543
+  - 0
+- name: pk_knot_37
+  prior:
+  - -7.385574318024659
+  - 0
+- name: pk_knot_38
+  prior:
+  - -7.222351154336447
+  - 0
+- name: pk_knot_39
+  prior:
+  - -7.064239160328883
+  - 0
+- name: pk_knot_40
+  prior:
+  - -6.9102969968138215
+  - 0
+- name: pk_knot_41
+  prior:
+  - -6.7597492634273175
+  - 0
+- name: pk_knot_42
+  prior:
+  - -6.611974562536493
+  - 0
+- name: pk_knot_43
+  prior:
+  - -6.466482651177112
+  - 0
+- name: pk_knot_44
+  prior:
+  - -6.322894473701419
+  - 0
+- name: pk_knot_45
+  prior:
+  - -6.180905512091169
+  - 0
+- name: pk_knot_46
+  prior:
+  - -6.04026254541402
+  - 0
+- name: pk_knot_47
+  prior:
+  - -5.9007552649022985
+  - 0
+- name: pk_knot_48
+  prior:
+  - -5.762211198675555
+  - 0
+- name: pk_knot_49
+  prior:
+  - -5.624489840815459
+  - 0
+- name: pk_knot_50
+  prior:
+  - -5.487476878080949
+  - 0
+- name: pk_knot_51
+  prior:
+  - -5.35107948192688
+  - 0
+- name: pk_knot_52
+  prior:
+  - -5.215224008567066
+  - 0
+- name: pk_knot_53
+  prior:
+  - -5.079852959326679
+  - 0
+- name: pk_knot_54
+  prior:
+  - -4.944920446460102
+  - 0
+- name: pk_knot_55
+  prior:
+  - -4.810389669577319
+  - 0
+- name: pk_knot_56
+  prior:
+  - -4.676231912908103
+  - 0
+- name: pk_knot_57
+  prior:
+  - -4.542425977256952
+  - 0
+- name: pk_knot_58
+  prior:
+  - -4.408956552524101
+  - 0
+- name: pk_knot_59
+  prior:
+  - -4.275812851576912
+  - 0
+- name: pk_knot_60
+  prior:
+  - -4.142988038405674
+  - 0
+- name: pk_knot_61
+  prior:
+  - -4.010479450349684
+  - 0
+- name: pk_knot_62
+  prior:
+  - -3.878288316476755
+  - 0
+- name: pk_knot_63
+  prior:
+  - -3.7464192996486805
+  - 0
+- name: pk_knot_64
+  prior:
+  - -3.6148805124302967
+  - 0
+- name: pk_knot_65
+  prior:
+  - -3.4836840547149253
+  - 0
+- name: pk_knot_66
+  prior:
+  - -3.3528467818008383
+  - 0
+- name: pk_knot_67
+  prior:
+  - -3.222390634418066
+  - 0
+- name: pk_knot_68
+  prior:
+  - -3.092343224961462
+  - 0
+- name: pk_knot_69
+  prior:
+  - -2.962738687441453
+  - 0
+- name: pk_knot_70
+  prior:
+  - -2.833619574471172
+  - 0
+- name: pk_knot_71
+  prior:
+  - -2.705038841702411
+  - 0
+- name: pk_knot_72
+  prior:
+  - -2.5770622167692863
+  - 0
+- name: pk_knot_73
+  prior:
+  - -2.4497710408669446
+  - 0
+- name: pk_knot_74
+  prior:
+  - -2.323266840335619
+  - 0
+- name: pk_knot_75
+  prior:
+  - -2.1976778264530683
+  - 0
+- name: pk_knot_76
+  prior:
+  - -2.0731669480510355
+  - 0
+- name: pk_knot_77
+  prior:
+  - -1.9499422106872593
+  - 0
+- name: pk_knot_78
+  prior:
+  - -1.8282711042966393
+  - 0
+- name: pk_knot_79
+  prior:
+  - -1.7085027974580274
+  - 1.2872607109731833
+- name: pk_knot_80
+  prior:
+  - -1.5910987984555431
+  - 1.219061338863784
+- name: pk_max
+  prior:
+  - 0
+  - 91813.35163463437
+- name: f
+  prior:
+  - -0.4082599214054734
+  - 2.188876888241841

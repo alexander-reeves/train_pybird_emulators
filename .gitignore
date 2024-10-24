@@ -63,3 +63,7 @@ docs/_build
 
 # virtualenvs
 venv*
+
+*saved_models/
+*.ipynb_checkpoints/
+*pyegg*

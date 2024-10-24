@@ -1,0 +1,12 @@
+- parameters:
+    - scripts_dir: src/train_pybird_emulators/scripts
+    - executable1: get_bpk_from_bank.py
+    - n_jobs: 100
+
+# - name: get_bpk_from_bank_resum
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0>100' --n_jobs=$[n_jobs] --main_n_cores_per_job=4 --mode=jobarray --function='main,merge' --main_time=4 --main_memory=4096 --merge_memory=8096 --system=slurm --verbosity=debug --spec_per_ind=500 --resum
+
+- name: get_bpk_from_bank_noresum
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0>100' --n_jobs=$[n_jobs] --main_n_cores_per_job=4 --mode=jobarray --function='main,merge' --main_time=4 --main_memory=4096 --merge_memory=8096 --system=slurm --verbosity=debug --spec_per_ind=500 --scratch=/cluster/scratch/areeves/bpk_full_from_bank_noresum
+
+

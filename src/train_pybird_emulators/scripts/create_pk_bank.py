@@ -13,11 +13,11 @@ def setup(args):
 
     parser = argparse.ArgumentParser(description='Create a bank of power spectra for a given cosmology')
     parser.add_argument('--n_pk', type=int, default=100, help='Number of power spectra to generate')
-    parser.add_argument('--n_k', type=int, default=100, help='Number of k values to use')
+    parser.add_argument('--n_k', type=int, default=1000, help='Number of k values to use')
     parser.add_argument('--spec_per_ind', type=int, default=500, help='Number of spectra per index')
     parser.add_argument('--output_dir', type=str, default='pk_bank', help='Directory to save the power spectra')
-    parser.add_argument('--k_l', type=float, default=1e-5, help='The value of k_l to use for the computation of the pybird pieces training data')
-    parser.add_argument('--k_r', type=float, default=1.0, help='The value of k_r to use for the computation of the pybird pieces training data')
+    parser.add_argument('--k_l', type=float, default=1e-4, help='The value of k_l to use for the computation of the pybird pieces training data')
+    parser.add_argument('--k_r', type=float, default=0.7, help='The value of k_r to use for the computation of the pybird pieces training data')
     parser.add_argument(
         "--verbosity",
         default="warning",
@@ -28,7 +28,7 @@ def setup(args):
     args = parser.parse_args(args)
 
     planck_mean = {'omega_b': 0.02235, 'omega_cdm': 0.120, 'h': 0.675, 'ln10^{10}A_s': 3.044, 'n_s': 0.965, 'Omega_k': 0., 'N_ncdm': 1., 'm_ncdm': 0.06, 'T_ncdm': 0.71611, 'N_ur': 2.0329, 'w0_fld': -1, 'Omega_Lambda': 0.}
-    lss_sigma = {'omega_b': 0.00035, 'omega_cdm': 0.010, 'h': 0.015, 'ln10^{10}A_s': 0.15, 'n_s': 0.060, 'w0_fld': 0.03, 'm_ncdm': 0.2, 'N_ur': 0.2, 'Omega_k': 0.05}
+    lss_sigma = {'omega_b': 0.00035, 'omega_cdm': 0.010, 'h': 0.015, 'ln10^{10}A_s': 0.15, 'n_s': 0.060, 'w0_fld': 0.03, 'm_ncdm': 0.2, 'N_ur': 0.2, 'Omega_k': 0.05} #where is this from? 
 
     #these are planck bestfit +- 5 lss sigma
     param_ranges = {
@@ -49,6 +49,7 @@ def setup(args):
         LOGGER.info(f"Creating output directory: {args.output_dir}")
         os.makedirs(args.output_dir)
 
+    print("output dir", args.output_dir)
     return args, param_ranges
 
 def main(indices, args):
@@ -61,7 +62,7 @@ def main(indices, args):
     #set up the cosmology parameters
 
     #set up the k values to use
-    kk = np.logspace(args.k_l, args.k_r, args.n_k)
+    kk = np.logspace(np.log10(args.k_l), np.log10(args.k_r), args.n_k)
 
     #get the LHS samples 
     lhs_samples = lhs(n=len(param_ranges.keys()), samples=args.n_pk, criterion='center')
@@ -72,11 +73,17 @@ def main(indices, args):
         scaled_samples[key] = lhs_samples[:, i] * (max_val - min_val) + min_val
 
 
+    outdir = "/cluster/work/refregier/alexree/local_packages/pybird_emu/data/eftboss/out" #hardcoded path for now 
+    with open(os.path.join(outdir, 'fit_boss_onesky_pk_wc_cmass_ngc_l0.dat')) as f: data_file = f.read()
+    eft_params_str = data_file.split(', \n')[1].replace("# ", "")
+    eft_params = {key: float(value) for key, value in (pair.split(': ') for pair in eft_params_str.split(', '))}
+
     for index in indices: 
 
         pk = np.zeros((args.spec_per_ind, args.n_k))
         D = np.zeros((args.spec_per_ind,))
         f = np.zeros((args.spec_per_ind,))
+        bpk = np.zeros((args.spec_per_ind, 231)) #hardcode 231 for now 
 
         subset = {key: scaled_samples[key][index*args.spec_per_ind:(index+1)*(args.spec_per_ind)] for key in scaled_samples.keys()}
 
@@ -97,6 +104,11 @@ def main(indices, args):
             pk[i] = np.array([cosmo.pk_lin(k*cosmo.h(), subset["z"][i])*cosmo.h()**3 for k in kk])
             D[i] = cosmo.scale_independent_growth_factor(subset["z"][i])
             f[i] = cosmo.scale_independent_growth_factor_f(subset["z"][i])
+
+            #whilst were here lets also compute some fiducial bpks for later testing so we have everything in the same bank 
+            Omega0_m = cosmo.Omega0_m()
+            z = subset["z"][i]
+            bpk[i] = emu_utils.compute_1loop_bpk(pk[i], f[i], D[i], z, Omega0_m, kk, eft_params, resum=True).flatten()
         
         #turn all of the parameter values stored in the subset dict into a numpy array
         param_values = np.array([subset[key] for key in subset.keys()]).T
@@ -104,29 +116,28 @@ def main(indices, args):
         #transform param_values to a structured array
         param_values = np.array([tuple(row) for row in param_values], dtype=[(key, dtype) for key in subset.keys()])
 
-        np.savez(args.output_dir + "/pk_" + str(index), pk_lin=pk, params=param_values, kk=kk, D=D, f=f)
-        LOGGER.info(f"Saved power spectra for index: {index}")
+        np.savez(args.output_dir + "/pk_" + str(index), pk_lin=pk, params=param_values, kk=kk, D=D, f=f, bpk=bpk)
+        LOGGER.info(f"Saved power spectra and associate bpk for index: {index}")
     
     yield indices 
 
 def merge(indices, args):
+    print("Starting merge function")
     args, param_ranges = setup(args)
-
     with h5py.File(args.output_dir + '/total_data.h5', 'a') as hdf_file:
-
         for index in indices:
+            print("hello")
             # Load the processed results for the current index from the npz file
             npz_file_path = args.output_dir + f'/pk_{index}.npz'
 
-            # try:
-            LOGGER.info(f"Pk_lin shape: {np.load(npz_file_path)['pk_lin'].shape}")
-            LOGGER.info(f"params shape: {np.load(npz_file_path)['params'].shape}")
-            with np.load(npz_file_path, mmap_mode='r') as data:
-                datasets = ["pk_lin","params", "kk", "D", "f"]
+            try:
+                LOGGER.info(f"Pk_lin shape: {np.load(npz_file_path)['pk_lin'].shape}")
+                LOGGER.info(f"params shape: {np.load(npz_file_path)['params'].shape}")
+                with np.load(npz_file_path, mmap_mode='r') as data:
+                    datasets = ["pk_lin", "bpk", "params", "kk", "D", "f"]
 
-                for dataset in datasets:
-                    emu_utils.update_or_create_dataset(dataset, data[dataset], hdf_file=hdf_file)
+                    for dataset in datasets:
+                        emu_utils.update_or_create_dataset(dataset, data[dataset], hdf_file=hdf_file)
 
-            # except:
-            #     LOGGER.warning(f"could not load file for index: {index}")
-
+            except Exception as e:
+                print(f"could not find file for index {index}") 

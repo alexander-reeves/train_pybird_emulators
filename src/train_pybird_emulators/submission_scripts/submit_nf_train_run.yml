@@ -1,0 +1,13 @@
+# Copyright (C) 2023 ETH Zurich, Institute for Particle Physics and Astrophysics
+
+# Created on Nov 22
+# Author: Alexander Reeves
+
+
+# In the parameters section one can define global variables. When submitting the jobs epipe will replace them in the commands (see below)
+- parameters:
+    - scripts_dir: src/train_pybird_emulators/scripts
+    - executable1: train_nf.py
+
+- name: train_nf
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=20 --main_gpu=1 --main_gpu_memory=20000 --mode=jobarray --function=main --main_memory=4096  --model_name=nf_model2 --params_input_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/notebooks/params_array_from_lhc_new.npy" --epochs=1000 --ntrain=800000 --system=slurm --num_layers=10 --nbins=10 

@@ -308,9 +308,6 @@ class IntegratedModel:
             self.pca_scaler_mean_tf = tf.constant(self.pca_scaler_mean)
             self.pca_scaler_scale_tf = tf.constant(self.pca_scaler_scale)
 
-            self.pca_tensor = tf.constant(self.pca_model.components_)
-            self.mean_tensor = tf.constant(self.pca_model.mean_)
-
         except:
             print("no pca")
             self.pca_scaler_mean = None

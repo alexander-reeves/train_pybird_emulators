@@ -1,0 +1,25 @@
+parameters:
+- name: omega_b
+  prior:
+  - 0.01875
+  - 0.02625
+- name: omega_cdm
+  prior:
+  - 0.07
+  - 0.17
+- name: n_s
+  prior:
+  - 0.6
+  - 1.2
+- name: h
+  prior:
+  - 0.6
+  - 0.75
+- name: m_ncdm
+  prior:
+  - 0.0
+  - 1.0
+- name: z
+  prior:
+  - 0.0
+  - 4.0

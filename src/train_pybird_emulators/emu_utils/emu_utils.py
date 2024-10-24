@@ -11,6 +11,7 @@ from scipy.stats import norm
 from scipy.special import legendre
 import jax.numpy as jnp
 import jax
+jax.config.update("jax_enable_x64", True)
 import h5py
 from cosmic_toolbox import logger
 from pybird.greenfunction import GreenFunction
@@ -18,6 +19,7 @@ import os
 from train_pybird_emulators.emu_utils.interpolated_univariate_spline_jax import (
     InterpolatedUnivariateSpline_jax,
 )
+import jax.numpy as jnp
 
 LOGGER = logger.get_logger(__name__)
 
@@ -29,7 +31,7 @@ def read_yaml_file(filename):
 
 
 def sample_from_hypercube(
-    lhc, prior_ranges, dist="uniform", cov_file=None, mu_file=None
+    lhc, prior_ranges, dist="uniform", cov_file=None, mu_file=None, cov_factor=1.0, clip=False,
 ):
     num_samples, num_params = lhc.shape
     sampled_values = np.zeros((num_samples, num_params))
@@ -51,11 +53,18 @@ def sample_from_hypercube(
 
     elif dist == "multivariate_gaussian":
         mu_vector, covariance_matrix = np.load(mu_file), np.load(cov_file)
+        covariance_matrix = cov_factor * covariance_matrix
         cholesky_decomposition = np.linalg.cholesky(covariance_matrix)
 
         # Transform LHC samples using inverse of univariate Gaussian CDF
         transformed_lhc = norm.ppf(lhc)
         sampled_values = mu_vector + transformed_lhc @ cholesky_decomposition.T
+
+        if clip: 
+            #remove all samples that have values greater than 0 in all but the last to columns where they can take any value
+            mask = ~np.any(sampled_values[:, :-2] > 0, axis=1)
+            print("Number of samples removed: ", np.sum(~mask))
+            sampled_values = sampled_values[mask]
 
         return sampled_values
 
@@ -229,7 +238,7 @@ def get_pgg_from_linps_and_f_and_A(pk_lin, kk, N, f, A):
         },  # a bunch of unused dummy values
         do_core=True,
         do_survey_specific=False,
-    )  # this step computes the following:
+    )  
 
     # Do the set resum part
     Q = N.resum.makeQ(f)
@@ -246,15 +255,38 @@ def get_pgg_from_linps_and_f_and_A(pk_lin, kk, N, f, A):
 
     # Still keep the pieces separate as we might not want to resum
     outputs = [
-        N.bird.P11l.astype(np.float32),
-        N.bird.Pctl.astype(np.float32),
-        N.bird.Ploopl.astype(np.float32),
-        N.bird.fullIRPs11.astype(np.float32),
-        N.bird.fullIRPsct.astype(np.float32),
-        N.bird.fullIRPsloop.astype(np.float32),
+        N.bird.P11l.astype(np.float32).flatten(),
+        N.bird.Pctl.astype(np.float32).flatten(),
+        N.bird.Ploopl.astype(np.float32).flatten(),
+        N.bird.fullIRPs11.astype(np.float32).flatten(),
+        N.bird.fullIRPsct.astype(np.float32).flatten(),
+        N.bird.fullIRPsloop.astype(np.float32).flatten(),
     ]
 
     return outputs
+
+def get_bpk_spline_fit(pk_lin, f1, D1, params, kk,  N, eft_params, knots, resum=False):
+
+    # small displacements for avoiding errors (hacky) 
+    knots[0] = knots[0] + 1e-12
+    knots[-1] = knots[-1] - 1e-12
+    ilogpk = interp1d(np.log(kk), np.log(pk_lin), kind = 'cubic')
+    logknots = np.log(knots)  # Sorting and removing duplicates
+    logpk_knots = ilogpk(logknots)
+
+    #make a spline fit 
+    spline_ = PiecewiseSpline_jax(knots, logpk_knots)
+    pk_lin_rec = np.exp(spline_(np.log(kk)))
+    Omega0_m = (params[0] + params[1])/(params[3]**2) + 3*params[4]/93.14
+    z = params[-1] 
+    pk_lin_rec = np.array(pk_lin_rec)
+
+    N.compute({'kk': kk, 'pk_lin': pk_lin_rec, 'D': D1, 'f': f1, 'z': z, 'Omega0_m': Omega0_m},
+        do_core=True, do_survey_specific=True)
+
+    out = N.get(eft_params)
+
+    return out
 
 
 def get_pgg_from_params(params, parameters_dicts, N, kk, knots):
@@ -304,7 +336,7 @@ def get_logslope(x, f, side="left"):
     return A, n
 
 
-def compute_1loop_bpk(pk, f, D, z, kk, eft_params, knots, k_l, k_r, resum=False):
+def compute_1loop_bpk(pk, f, D, z, Omega0_m, kk, eft_params, resum=False):
     """
     Function to compute the original pybird bpk prediction for later comparison with the emulator performance
     """
@@ -337,92 +369,6 @@ def compute_1loop_bpk(pk, f, D, z, kk, eft_params, knots, k_l, k_r, resum=False)
     return bpk_true
 
 
-def test_1loop_sparsity(cosmo_dict, kk, eft_params):
-    """
-    Function to compute the difference between the reconstructed and original 1-loop matter power given
-    an input cosmology dictionary and optimal knots
-    """
-    # hardcoded for now
-    k_l, k_r = 1e-4, 1.0  # In Mpc/h
-    # Maybe keep this outside function for speed this sets up for real-space mps
-    N = Correlator()
-
-    N.set(
-        {
-            "output": "bPk",
-            "multipole": 3,
-            "kmax": 0.6,
-            "fftaccboost": 2,  # boosting the FFTLog precision (slower, but ~0.1% more precise -> let's emulate this)
-            "with_resum": True,
-            "with_exact_time": True,
-            "with_time": False,  # time unspecified
-            "km": 1.0,
-            "kr": 1.0,
-            "nd": 3e-4,
-            "eft_basis": "eftoflss",
-            "with_stoch": True,
-        }
-    )
-
-    # First use class to compute the linear growth factor and the f growth factor
-    M = Class()
-    keys_to_exclude = ["z", "pk_max"]
-    cosmo = {k: v for k, v in cosmo_dict.items() if k not in keys_to_exclude}
-    M.set(cosmo)
-    M.set({"output": "mPk", "P_k_max_h/Mpc": 5, "z_max_pk": cosmo_dict["z"]})
-    M.compute()
-    pk_class = np.array(
-        [M.pk_lin(k * M.h(), cosmo_dict["z"]) * M.h() ** 3 for k in kk]
-    )  # k in Mpc/h, pk in (Mpc/h)^3
-
-    # Linear growth factor and other pieces required
-    A_s, Omega0_m = 1e-10 * np.exp(cosmo_dict["ln10^{10}A_s"]), M.Omega0_m()
-    D1, f1 = (
-        M.scale_independent_growth_factor(cosmo_dict["z"]),
-        M.scale_independent_growth_factor_f(cosmo_dict["z"]),
-    )
-
-    N.compute(
-        {
-            "kk": kk,
-            "pk_lin": pk_class,
-            "pk_lin_2": pk_class,
-            "D": D1,
-            "f": f1,
-            "z": cosmo_dict["z"],
-            "Omega0_m": Omega0_m,
-        },
-        do_core=True,
-        do_survey_specific=True,
-    )
-
-    bpk_0 = N.get(eft_params)  # original bpk to compare size with
-
-    # Now loop through and find out the indices of small values of the IRloops
-    Q = 1.0 * N.bird.Q
-    M0 = 1.0 * N.bird.IRPsloop
-
-    for p in range(M0.shape[0]):
-        for i in range(M0.shape[1]):
-            for n in range(M0.shape[2]):
-                if (
-                    Q[1, :, p, n] == 0
-                ).all():  # if they are multiplied by 0, setting them to 0
-                    M0[p, i, n] = 0.0
-
-    sparsity = 1 - np.count_nonzero(M0) / M0.size
-    print("sparsity")
-    print("%.3f" % sparsity)
-
-    C = csr_matrix(
-        M0.reshape(-1)
-    )  # this is the sparse array stored in a compressed format
-    # print (C.shape)
-    C_idx = C.indices  # non-zero indices
-
-    return C_idx
-
-
 def get_default_cov():
     z = 0.5
     kk = np.logspace(-5, 0, 1000)
@@ -446,7 +392,11 @@ def get_default_cov():
         [M.pk_lin(k * M.h(), z) * M.h() ** 3 for k in kk]
     )  # k in Mpc/h, pk in (Mpc/h)^3
     ipk_h = interp1d(kk, pk_lin, kind="cubic")
-    cov = get_cov(kk, ipk_h, 1, 0.0, Vs, nbar=nbar, mult=3)
+    from train_pybird_emulators.emu_utils import k_arrays
+
+    k_emu = k_arrays.k_emu
+
+    cov = get_cov(k_emu, ipk_h, 1, 0.0, Vs, nbar=nbar, mult=3)
 
     return cov
 
@@ -475,8 +425,23 @@ def get_cov(kk, ipklin, b1, f1, Vs, nbar=3.0e-4, mult=2):
         [[np.diag(cov_diagonal[i, j]) for i in range(mult)] for j in range(mult)]
     )
 
+def get_growth_and_greens_from_params(params, parameters_dicts):
 
-def get_growth_factor_from_params(params, parameters_dicts):
+    input_dict = {}
+    for i, param in enumerate(parameters_dicts):
+        input_dict[param["name"]] = params[i]
+
+    input_dict["omega_m"] = (input_dict["omega_cdm"] +  input_dict["omega_b"])/(input_dict["h"]**2) + 3*input_dict["m_ncdm"]/93.14 #derive Omega_m
+    GF = GreenFunction(
+        Omega0_m=input_dict["omega_m"], w=input_dict["w0_fld"], quintessence=True
+    )
+    a = 1 / (1 + input_dict["z"])
+    Y1 = GF.Y(a)
+    G1t = GF.mG1t(a)
+    V12t = GF.mV12t(a)
+    G1 = GF.G(a)
+    fplus = GF.fplus(a)
+
     z = params[-1]
     M = Class()
     class_dict = {}
@@ -486,40 +451,80 @@ def get_growth_factor_from_params(params, parameters_dicts):
             class_dict[param["name"]] = params[i]
 
     M.set(class_dict)
+    M.set({"output": "mPk", "P_k_max_h/Mpc": 2.0, "z_max_pk": z,
+    "Omega_Lambda": 0, #for w0 model
+    "N_ur": 0.00641,
+    "N_ncdm": 1,
+    "deg_ncdm": 3})
 
     M.compute()
 
+    ## sqrt(P(k,z)/p(k,0)) -> k=~0.1
+    # Check the impact of f at k=0.1 
     D1, f1, H, DA = (
-        M.scale_independent_growth_factor(z),
-        M.scale_independent_growth_factor_f(z),
+        np.sqrt(M.pk(k=0.1, z=z)/M.pk(k=0.1, z=0.0)),
+        M.scale_dependent_growth_factor_f(z=z,k=0.1), #by default compute at k=0.1 to avoid neutrino issues 
         M.Hubble(z) / M.Hubble(0.0),
         M.angular_distance(z) * M.Hubble(0.0),
     )
 
-    return D1, f1, H, DA
+    return D1, f1, H, DA, Y1, G1t, V12t, G1, fplus
 
 
-def get_green_function_from_params(params, parameters_dicts):
+def get_bpk_full_from_params(params, parameters_dicts):
 
-    input_dict = {}
+    z = params[-1]
+    M = Class()
+    class_dict = {}
+
     for i, param in enumerate(parameters_dicts):
-        input_dict[param["name"]] = params[i]
+        if param["name"] != "z":
+            class_dict[param["name"]] = params[i]
 
-    GF = GreenFunction(
-        Omega0_m=input_dict["omega_m"], w=input_dict["w0"], quintessence=True
+    M.set(class_dict)
+    M.set({"output": "mPk", "P_k_max_h/Mpc": 2.0, "z_max_pk": z,
+    "Omega_Lambda": 0, #for w0 model
+    "N_ur": 0.00641,
+    "N_ncdm": 1,
+    "deg_ncdm": 3})
+
+    M.compute()
+
+    ## sqrt(P(k,z)/p(k,0)) -> k=~0.1
+    # Check the impact of f at k=0.1 
+    D1, f1 = (
+        np.sqrt(M.pk(k=0.1, z=z)/M.pk(k=0.1, z=0.0)),
+        M.scale_dependent_growth_factor_f(z=z,k=0.1), #by default compute at k=0.1 to avoid neutrino issues 
     )
-    a = 1 / (1 + input_dict["z"])
-    Y1 = GF.Y(a)
-    G1t = GF.mG1t(a)
-    V12t = GF.mV12t(a)
-    G1 = GF.G(a)
-    f = GF.fplus(a)
 
-    return Y1, G1t, V12t, G1, f
+    #get the pk_lin
+    k_l, k_r = 1e-4, 0.7  # In Mpc/h
+    kk = np.logspace(np.log10(k_l), np.log10(k_r), 1000)
+    pk_lin = np.array(
+        [M.pk_lin(k * M.h(), z) * M.h() ** 3 for k in kk]
+    )  # k in Mpc/h, pk in (Mpc/h)^3
+
+    #load fiducial eft params
+    outdir = "/cluster/work/refregier/alexree/local_packages/pybird_emu/data/eftboss/out" #hardcoded path for now 
+    with open(os.path.join(outdir, 'fit_boss_onesky_pk_wc_cmass_ngc_l0.dat')) as f: data_file = f.read()
+    eft_params_str = data_file.split(', \n')[1].replace("# ", "")
+    eft_params = {key: float(value) for key, value in (pair.split(': ') for pair in eft_params_str.split(', '))}
+
+    Omega0_m = M.Omega_m()
+
+    bpk_true = compute_1loop_bpk(pk_lin, f1, D1, z, Omega0_m, kk,  eft_params, resum=True)
+
+    return bpk_true, kk, pk_lin, f1, D1 
+    
 
 
 # Function to load and save data to HDF5
 def update_or_create_dataset(dataset_name, data, hdf_file):
+    print("dataset", dataset_name)
+    if dataset_name == "bpk":
+        data = data.reshape(-1, 77*3) #flatten the bpk data
+    
+    
     if dataset_name in hdf_file:
         # Dataset exists, append the data to the existing dataset
         hdf_file[dataset_name].resize(
@@ -528,9 +533,12 @@ def update_or_create_dataset(dataset_name, data, hdf_file):
         hdf_file[dataset_name][-data.shape[0] :] = data
     else:
         # Dataset doesn't exist, create it
-        if dataset_name in ["params", "pk_lin"]:
+        if str(dataset_name) in ["pk_lin", "bpk", "bpk_resum_True", "bpk_resum_False", "bpk_knots_reconstructed", "P11l", "Pctl", "Ploopl", "IRPs11", "IRPsct", "IRPsloop","params"]:
+            print("data shape", data.shape)
+            print("hello I am 2d")
             maxshape = (None, data.shape[1])
         else:
+            print("hi I am 1d")
             maxshape = (None,)
         hdf_file.create_dataset(dataset_name, data=data, maxshape=maxshape)
 
@@ -580,31 +588,83 @@ def remove_nan_rows_from_both_arrays(y_train, x_train):
     return cleaned_data_array, cleaned_x_train
 
 
-def get_training_data_from_hdf5(fn, piece_name, ntrain, mono, quad_hex):
+def get_training_data_from_hdf5(fn, piece_name, ntrain, mono, quad_hex, quad_alone, hex_alone, mask_high_k=False, test_data=False):
+
+    if mask_high_k:
+        k_array_length = 97 #legacy training data went to k-max = 0.6
+    else: 
+        k_array_length=77
 
     with h5py.File(fn, "r") as f:
         LOGGER.info(
             f"total number of available training points: {f['params'].shape[0]}"
         )
         LOGGER.info(f"Available keys in the file: {f.keys()}")
-        x_train = f["params"][:ntrain]
+        if test_data:
+            LOGGER.info("flipping array so that the last elements are read for test data")
+
+        if test_data:
+            x_train = f["params"][-ntrain:]
+        else:
+            x_train = f["params"][:ntrain]
+
+
 
         if piece_name is not None:
-            if mono:
-                LOGGER.info(f"Using monopole data for {piece_name}")
-                y_train = f[f"{piece_name}"][:ntrain, : 35 * 97]
+            if not test_data:
+                if mono:
+                    LOGGER.info(f"Using monopole data for {piece_name}")
+                    print("where are zeros?")
+                    print(np.where(f[f"{piece_name}"][0]==0))
+                    y_train = f[f"{piece_name}"][:ntrain, : 35 * k_array_length]
 
-            if quad_hex:
-                LOGGER.info(f"Using quadhex data for {piece_name}")
-                y_train = f[f"{piece_name}"][:ntrain, 35 * 97 :]
+                if quad_hex:
+                    LOGGER.info(f"Using quadhex data for {piece_name}")
+                    y_train = f[f"{piece_name}"][:ntrain, 35 * k_array_length :]
+                
+                if quad_alone:
+                    LOGGER.info(f"Using quad alone data for {piece_name}")
+                    y_train = f[f"{piece_name}"][:ntrain, 35 * k_array_length : 2*35 * k_array_length]
+                
+                if hex_alone:
+                    LOGGER.info(f"Using hex alone data for {piece_name}")
+                    y_train = f[f"{piece_name}"][:ntrain, 2*35 * k_array_length:]
 
-            if not mono and not quad_hex:
-                y_train = f[f"{piece_name}"][:ntrain]
+                if not mono and not quad_hex and not quad_alone and not hex_alone:
+                    y_train = f[f"{piece_name}"][:ntrain]
+            else:
+                if mono:
+                    LOGGER.info(f"Using monopole data for {piece_name}")
+                    print("where are zeros?")
+                    print(np.where(f[f"{piece_name}"][0]==0))
+                    y_train = f[f"{piece_name}"][-ntrain:, : 35 * k_array_length]
+
+                if quad_hex:
+                    LOGGER.info(f"Using quadhex data for {piece_name}")
+                    y_train = f[f"{piece_name}"][-ntrain:, 35 * k_array_length :]
+
+                if quad_alone:
+                    LOGGER.info(f"Using quad alone data for {piece_name}")
+                    y_train = f[f"{piece_name}"][-ntrain:, 35 * k_array_length : 2*35 * k_array_length]
+                
+                if hex_alone:
+                    LOGGER.info(f"Using hex alone data for {piece_name}")
+                    y_train = f[f"{piece_name}"][-ntrain:, 2*35 * k_array_length:]
+
+                if not mono and not quad_hex and not quad_alone and not hex_alone:
+                    y_train = f[f"{piece_name}"][-ntrain:]
+
 
         else:
             LOGGER.info("No piece name provided, using all columns of the data")
-            y_train = np.vstack(
-                [f[key][:ntrain] for key in f.keys() if key != "params"]
-            ).T
+            if not test_data:
+                y_train = np.vstack(
+                    [f[key][:ntrain] for key in f.keys() if key != "params"]
+                ).T
+
+            else:
+                y_train = np.vstack(
+                    [f[key][-ntrain:] for key in f.keys() if key != "params"]
+                ).T
 
         return x_train, y_train

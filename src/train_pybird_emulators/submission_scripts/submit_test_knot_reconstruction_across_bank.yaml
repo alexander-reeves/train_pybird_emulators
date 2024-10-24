@@ -1,0 +1,9 @@
+- parameters:
+    - scripts_dir: src/train_pybird_emulators/scripts
+    - executable1: test_knot_decomposition_across_bank.py
+    - n_jobs: 20
+
+- name: test_knot_decomposition_across_bank
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0>20' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=4096 --merge_memory=8096 --system=slurm --spec_per_ind=500 --verbosity=debug --full_bpk_hdf5_file=/cluster/scratch/areeves/pybird_training_data_bpk_full_narrow/total_data.h5
+
+

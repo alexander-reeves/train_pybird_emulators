@@ -2,10 +2,10 @@
 - parameters:
     - scripts_dir: src/train_pybird_emulators/scripts
     - executable1: create_pk_bank.py
-    - n_jobs: 1
-    - spec_per_ind: 2
+    - n_jobs: 200
+    - spec_per_ind: 800
     - n_k: 1000
-    - n_pk: 100000 #Should be the product of the previous two numbers 
+    - n_pk: 200000
 
 - name: create_pk_bank
-  cmd: esub $[scripts_dir]/$[executable1] --tasks='0>1' --n_jobs=$[n_jobs] --mode=jobarray --function='merge' --main_time=4 --main_memory=8096 --system=slurm --spec_per_ind=$[spec_per_ind] --n_pk=$[n_pk] --n_k=$[n_k] --merge_memory=8192 --watchdog_time=24 --output_dir="/cluster/scratch/areeves/pk_bank_lss_sigma_new"
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0>200' --n_jobs=$[n_jobs] --mode=jobarray --function='merge' --main_time=4 --main_memory=8096 --system=slurm --spec_per_ind=$[spec_per_ind] --n_pk=$[n_pk] --n_k=$[n_k] --merge_memory=8192 --watchdog_time=24 --output_dir="/cluster/scratch/areeves/pk_bank_lss_sigma_new2"
