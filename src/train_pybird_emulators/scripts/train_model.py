@@ -167,6 +167,7 @@ def main(indices, args):
                 LOGGER.info("finished masking out some high k")
 
         # Filter out bad indices
+        print("x_train shape", x_train.shape)
         if args.piece_name is not None:
             LOGGER.info(f"filtering out bad indices for piece {args.piece_name}")
 
@@ -175,59 +176,53 @@ def main(indices, args):
             condition_3 = x_train[:, -2] < 0
             bad_inds = np.where(condition_1 | condition_2 | condition_3 )[0]
 
-            # gradients = np.abs(np.diff(y_train, axis=1))
-
-            # gradient_threshold = np.quantile(
-            #     gradients, 0.95
-            # )  # top 20% of gradients
-
-            # # spikes typically happen around high k
-            # spike_positions = np.arange(
-            #     k_emu.shape[0] - 1, gradients.shape[1], k_emu.shape[0]
-            # )  # Adjust for 0-index and diff output size
-
-            # # Condition to identify rows with gradient spikes at specific positions
-            # condition_4 = np.any(
-            #     gradients[:, spike_positions] > gradient_threshold, axis=1
-            # )
-
-            # bad_inds = np.where(condition_1 | condition_2 | condition_3 | condition_4)[0]
-
             if args.piece_name.startswith("I"):
                 print("training IR piece... going to filter out more large gradients")
-                # Calculate the absolute gradients along each row
                 gradients = np.abs(np.diff(y_train, axis=1))
 
                 gradient_threshold = np.quantile(
-                    gradients, 0.85
-                )  # top 15% of gradients
+                    gradients, 0.9995
+                )  
 
+                # if args.piece_name=="IRPs11": # requires a bit less clipping 
+                #     gradient_threshold = np.quantile(
+                #         gradients, 0.99
+                #     )  
+                
+                # elif args.piece_name=="IRPsct":
+                #     gradient_threshold = np.quantile(
+                #         gradients, 0.99
+                #     )  
+                
+                
                 # spikes typically happen around high k
                 spike_positions = np.arange(
                     k_emu.shape[0] - 1, gradients.shape[1], k_emu.shape[0]
                 )  # Adjust for 0-index and diff output size
 
-                # Condition to identify rows with gradient spikes at specific positions
                 condition_4 = np.any(
                     gradients[:, spike_positions] > gradient_threshold, axis=1
                 )
 
                 condition_5 = x_train[:, -2] > 35000
 
-                # gradients_first_5 = np.diff(x_train[:, :6], axis=1)  # Shape: (num_samples, 10)
-
-                # # # Identify negative gradients
-                # negative_gradients = gradients_first_5 < 0  # Shape: (num_samples, 10)
-
-                # condition_5 = np.any(negative_gradients, axis=1)
-
                 bad_inds = np.where(
                     condition_1 | condition_2 | condition_3 | condition_4 | condition_5
+                )[0]
+
+            else:
+                bad_inds = np.where(
+                    condition_1 | condition_2 | condition_3 
                 )[0]
 
             LOGGER.info(f"removing {len(bad_inds)} bad indices")
             x_train = np.delete(x_train, bad_inds, axis=0)
             y_train = np.delete(y_train, bad_inds, axis=0)
+        
+        if not args.piece_name.startswith("I"):
+            LOGGER.info("Not training IR piece... going to remove the last two columns of x_train")
+            x_train = x_train[:, :-2]
+            print("x_train shape", x_train.shape)
 
         # Are there places where all the columns in the data are zero?
         zero_columns = np.where(np.sum(np.abs(y_train), axis=0) == 0)[0]
@@ -256,7 +251,7 @@ def main(indices, args):
         if args.pca_preprocess:
             LOGGER.info("using PCA preprocessing")
             pca_scaler = StandardScaler().fit(y_train)
-            pca = PCA(n_components=npca)
+            pca = PCA(n_components=args.npca)
             # Fit PCA to standard scaled data
             normalized_data = pca_scaler.transform(y_train)
             pca.fit(normalized_data)
@@ -280,7 +275,7 @@ def main(indices, args):
 
         keras_model = integrated_model.create_model(
             input_dim=x_train.shape[1],
-            hidden_layers=[256,256,256],
+            hidden_layers=[256,256,256,256],
             output_dim=y_train.shape[1],
         )
 

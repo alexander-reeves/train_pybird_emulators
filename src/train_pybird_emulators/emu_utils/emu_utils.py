@@ -31,7 +31,7 @@ def read_yaml_file(filename):
 
 
 def sample_from_hypercube(
-    lhc, prior_ranges, dist="uniform", cov_file=None, mu_file=None, cov_factor=1.0, clip=False,
+    lhc, prior_ranges, dist="uniform", cov_file=None, mu_file=None, cov_factor=1.0, clip=False, clip_mode=None, 
 ):
     num_samples, num_params = lhc.shape
     sampled_values = np.zeros((num_samples, num_params))
@@ -52,7 +52,10 @@ def sample_from_hypercube(
         return sampled_values
 
     elif dist == "multivariate_gaussian":
-        mu_vector, covariance_matrix = np.load(mu_file), np.load(cov_file)
+
+        #if these are files load them, if they are arrays then use them directly
+        mu_vector = np.load(mu_file) if isinstance(mu_file, str) else mu_file        
+        covariance_matrix = np.load(cov_file) if isinstance(cov_file, str) else cov_file
         covariance_matrix = cov_factor * covariance_matrix
         cholesky_decomposition = np.linalg.cholesky(covariance_matrix)
 
@@ -61,10 +64,27 @@ def sample_from_hypercube(
         sampled_values = mu_vector + transformed_lhc @ cholesky_decomposition.T
 
         if clip: 
-            #remove all samples that have values greater than 0 in all but the last to columns where they can take any value
-            mask = ~np.any(sampled_values[:, :-2] > 0, axis=1)
-            print("Number of samples removed: ", np.sum(~mask))
-            sampled_values = sampled_values[mask]
+            if clip_mode is None: 
+                #remove all samples that have values greater than 0 in all but the last to columns where they can take any value
+                mask = ~np.any(sampled_values[:, :-2] > 0, axis=1)
+                print("Number of samples removed: ", np.sum(~mask))
+                sampled_values = sampled_values[mask]
+            
+            elif clip_mode == "pk_bank_test":
+                paramnames = ["ln10^{10}A_s", "h", "omega_m", "m_ncdm", "n_s", "N_ur", "Omega_k","omega_b"] # order of parameters , m_nu is total neutrino mass
+                limits = {"ln10^{10}A_s":[1.8, 4.3], "h":[0.3, 0.9], "omega_m":[0.2, 0.4], "m_ncdm":[0.0, 0.5], "n_s":[0.8, 1.05], "N_ur":[0.0, 2.0], "Omega_k":[-0.2, 0.2], "omega_b":[0.01, 0.04]}
+                #remove any rows where any of the parameter values are outside the limits
+                mask = np.all([sampled_values[:, i] > limits[paramnames[i]][0] for i in range(len(paramnames))], axis=0) & np.all([sampled_values[:, i] < limits[paramnames[i]][1] for i in range(len(paramnames))], axis=0)
+                print("Number of samples removed: ", np.sum(~mask))
+                sampled_values = sampled_values[mask]
+
+            elif clip_mode == "pk_bank_train": #clip this at BOSS 4 sigma limits
+                paramnames = ["ln10^{10}A_s", "h", "omega_m", "m_ncdm", "n_s", "N_ur", "Omega_k","omega_b"] # order of parameters , m_nu is total neutrino mass
+                limits = {"ln10^{10}A_s":[0.45, 5.6], "h":[0.2, 1.0], "omega_m":[0.1, 0.5], "m_ncdm":[0.0, 0.5], "n_s":[0.44, 1.5], "N_ur":[0.0, 10.0], "Omega_k":[-0.48, 0.48], "omega_b":[0.01, 0.1]}
+                #remove any rows where any of the parameter values are outside the limits
+                mask = np.all([sampled_values[:, i] > limits[paramnames[i]][0] for i in range(len(paramnames))], axis=0) & np.all([sampled_values[:, i] < limits[paramnames[i]][1] for i in range(len(paramnames))], axis=0)
+                print("Number of samples removed: ", np.sum(~mask))
+                sampled_values = sampled_values[mask]
 
         return sampled_values
 
@@ -230,7 +250,6 @@ def get_pgg_from_linps_and_f_and_A(pk_lin, kk, N, f, A):
         {
             "kk": kk,
             "pk_lin": pk_lin,  # pk_lin normalized by A
-            "pk_lin_2": pk_lin,  # pk_lin_2 goes inside the loop integrals (+IR corr.)
             "D": 1.0,
             "f": 1.0,
             "z": 1.0,
@@ -348,8 +367,8 @@ def compute_1loop_bpk(pk, f, D, z, Omega0_m, kk, eft_params, resum=False):
             "multipole": 3,
             "kmax": 0.4,
             "fftaccboost": 2,  # boosting the FFTLog precision (slower, but ~0.1% more precise -> let's emulate this)
+            "with_time": False, # time independent as we specify D, f, z later 
             "with_resum": resum,
-            "with_exact_time": True,
             "km": 1.0,
             "kr": 1.0,
             "nd": 3e-4,
@@ -396,7 +415,7 @@ def get_default_cov():
 
     k_emu = k_arrays.k_emu
 
-    cov = get_cov(k_emu, ipk_h, 1, 0.0, Vs, nbar=nbar, mult=3)
+    cov = get_cov(k_emu, ipk_h, 1.8, 0.0, Vs, nbar=nbar, mult=3)
 
     return cov
 
@@ -425,6 +444,21 @@ def get_cov(kk, ipklin, b1, f1, Vs, nbar=3.0e-4, mult=2):
         [[np.diag(cov_diagonal[i, j]) for i in range(mult)] for j in range(mult)]
     )
 
+def get_spline_params(knots, ilogpk, with_logknots=False):
+    logknots = np.log( np.unique(knots) ) # sorting and removing duplicates
+    logpk = ilogpk(logknots)
+    if with_logknots: return logknots, logpk
+    else: return logpk
+
+def get_logslope(x, f, side='left'):
+    if side == 'left': 
+        n = (np.log(f[1]) - np.log(f[0])) / (np.log(x[1]) - np.log(x[0]))
+        A = f[0] / x[0]**n
+    elif side == 'right':
+        n = (np.log(f[-1]) - np.log(f[-2])) / (np.log(x[-1]) - np.log(x[-2]))
+        A = f[-1] / x[-1]**n
+    return A, n
+    
 def get_growth_and_greens_from_params(params, parameters_dicts):
 
     input_dict = {}
@@ -533,13 +567,17 @@ def update_or_create_dataset(dataset_name, data, hdf_file):
         hdf_file[dataset_name][-data.shape[0] :] = data
     else:
         # Dataset doesn't exist, create it
-        if str(dataset_name) in ["pk_lin", "bpk", "bpk_resum_True", "bpk_resum_False", "bpk_knots_reconstructed", "P11l", "Pctl", "Ploopl", "IRPs11", "IRPsct", "IRPsloop","params"]:
+        # if dataset has 2 dimensions, then we need to specify the maxshape
+        if len(data.shape) == 2:
             print("data shape", data.shape)
             print("hello I am 2d")
             maxshape = (None, data.shape[1])
-        else:
+        elif len(data.shape) == 1:
             print("hi I am 1d")
             maxshape = (None,)
+        else: 
+            raise ValueError("Data shape not supported")
+        
         hdf_file.create_dataset(dataset_name, data=data, maxshape=maxshape)
 
 
@@ -605,8 +643,13 @@ def get_training_data_from_hdf5(fn, piece_name, ntrain, mono, quad_hex, quad_alo
 
         if test_data:
             x_train = f["params"][-ntrain:]
+            if "emu_inputs" in f.keys(): # if we are inputting a pk_bank directly 
+                x_train = f["emu_inputs"][-ntrain:]
         else:
             x_train = f["params"][:ntrain]
+            if "emu_inputs" in f.keys():
+                x_train = f["emu_inputs"][:ntrain]
+                print("xtrain shape", x_train.shape)
 
 
 

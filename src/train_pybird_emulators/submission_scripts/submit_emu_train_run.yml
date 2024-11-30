@@ -18,8 +18,18 @@
 # - name: train_emu_ploopl_monopole_80_knotslog_test2conditions
 #   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=20 --main_gpu=1 --main_gpu_memory=20000 --mode=jobarray --function=main --main_memory=4096 --main_time=4 --model_name=ploopl_mono_80knots_newbank_log_conditions --training_data_file="/cluster/scratch/areeves/pybird_training_data_pybird_covfactor_newbank/total_data.h5" --epochs=1000 --ntrain=2500000 --piece_name=Ploopl --system=slurm --mono --log_preprocess
 
-- name: train_emu_ploopl_monopole_80_knots_512_gc_log
-  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=40000 --mode=jobarray --function=main --main_memory=4096 --main_time=24 --model_name=ploopl_mono_80knots_newbank_gc_log --training_data_file="/cluster/scratch/areeves/pybird_training_data_pybird_gc/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=Ploopl --system=slurm --mono --log_preprocess
+# - name: train_emu_ploopl_monopole_80_knots_512_gc_log
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=40000 --mode=jobarray --function=main --main_memory=4096 --main_time=24 --model_name=ploopl_mono_80knots_newbank_gc_log --training_data_file="/cluster/scratch/areeves/pybird_training_data_pybird_gc/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=Ploopl --system=slurm --mono --log_preprocess
+
+#1e-4
+# - name: train_emu_ploopl_monopole_80_knots_512_emu_input
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000 --mode=jobarray --function=main --main_memory=4096 --main_time=24 --model_name=ploopl_mono_80knots_newbank3_emuinput --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=Ploopl --system=slurm --mono
+
+# - name: train_emu_ploopl_monopole_80_knots_512_emu_input_pca
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000 --mode=jobarray --function=main --main_memory=4096 --main_time=4 --model_name=ploopl_mono_80knots_newbank_emuinput_pca --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=Ploopl --system=slurm --mono --pca_preprocess --npca=512
+
+# - name: train_emu_ploopl_monopole_80_knots_512_emu_input_rescale
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000 --mode=jobarray --function=main --main_memory=4096 --main_time=4 --model_name=ploopl_mono_80knots_newbank2_emuinput_rescale --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug/total_data.h5" --epochs=1000 --ntrain=100000 --piece_name=Ploopl --system=slurm --mono --rescale
 
 # - name: train_emu_ploopl_monopole_80_knots_rescale_512_gc
 #   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=40000 --mode=jobarray --function=main --main_memory=4096 --main_time=24 --model_name=ploopl_mono_80knots_newbank_gc_rescale --training_data_file="/cluster/scratch/areeves/pybird_training_data_pybird_gc/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=Ploopl --system=slurm --mono --rescale
@@ -31,25 +41,46 @@
 #   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=20 --main_gpu=1 --main_gpu_memory=20000 --mode=jobarray --function=main --main_memory=4096 --main_time=24 --model_name=ploopl_mono_80knots_newbank_norescale --training_data_file="/cluster/scratch/areeves/pybird_training_data_pybird_covfactor_newbank/total_data.h5" --epochs=800 --ntrain=2000000 --piece_name=Ploopl --system=slurm --mono 
 
 # - name: train_emu_ploopl_quad_hex
-#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=24 --model_name=ploopl_quad_hex_80knots_512_rescale --training_data_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/training_data/total_data.h5" --epochs=800 --ntrain=3000000 --piece_name=Ploopl --system=slurm --quad_hex --rescale --batch_size=512
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=24 --model_name=ploopl_quad_hex_80knots_512_rescale_newbank_emuinput --training_data_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/training_data/total_data.h5" --epochs=800 --ntrain=3000000 --piece_name=Ploopl --system=slurm --quad_hex --rescale --batch_size=512
 
 # - name: train_emu_ploopl_quad_alone
-#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=24 --model_name=ploopl_quad_80knots_512_rescale_moretd --training_data_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/training_data/total_data.h5" --epochs=1000 --ntrain=3500000 --piece_name=Ploopl --system=slurm --quad_alone --rescale
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=24 --model_name=ploopl_quad_80knots_newbank3_emuinput --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3500000 --piece_name=Ploopl --system=slurm --quad_alone 
+
+# - name: train_emu_ploopl_quad_alone_pca
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=24 --model_name=ploopl_quad_80knots_newbank3_emuinput_pca --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3500000 --piece_name=Ploopl --system=slurm --quad_alone --pca_preprocess --npca=512
 
 # - name: train_emu_ploopl_hex_alone
-#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=24 --model_name=ploopl_hex_80knots_512_rescale_moretd --training_data_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/training_data/total_data.h5" --epochs=1000 --ntrain=3500000 --piece_name=Ploopl --system=slurm --hex_alone --rescale
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=24 --model_name=ploopl_hex_80knots_newbank3_emuinput --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3500000 --piece_name=Ploopl --system=slurm --hex_alone 
 
-# - name: train_emu_irps11
-#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=4 --model_name=irps11_80knots_512_rescale_moretd --training_data_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/training_data/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPs11 --system=slurm --rescale
+# - name: train_emu_ploopl_hex_alone_pca
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=24 --model_name=ploopl_hex_80knots_newbank3_emuinput_pca --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3500000 --piece_name=Ploopl --system=slurm --hex_alone --pca_preprocess --npca=512
 
-# - name: train_emu_irpsct
-#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --main_time=4 --model_name=irpsct_80knots_512_rescale_moretd  --training_data_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/training_data/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsct --system=slurm --rescale
+- name: train_emu_irps11
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=4 --model_name=irps11_80knots_newbank3_emuinput --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPs11 --system=slurm 
 
-# - name: train_emu_irpsloop_mono
-#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --main_time=4 --model_name=irpsloop_mono_80knots_512_rescale_moretd  --training_data_file="/cluster/scratch/areeves/pybird_training_data_pybird_gc/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --mono --rescale
+- name: train_emu_irps11_pca
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --main_gpu_memory=20000  --mode=jobarray --function=main --main_memory=4096  --main_time=4 --model_name=irps11_80knots_newbank3_emuinput_pca --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPs11 --system=slurm --pca_preprocess --npca=512
 
-# - name: train_emu_irpsloop_quad_alone
-#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000  --main_time=4 --model_name=irpsloop_quad_80knots_512_rescale --training_data_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/training_data/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --quad_alone --rescale
+- name: train_emu_irpsct
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --main_time=4 --model_name=irpsct_80knots_newbank3_emuinput  --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsct --system=slurm 
 
-# - name: train_emu_irpsloop_hex_alone
-#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000  --main_time=4 --model_name=irpsloop_hex_80knots_512_rescale --training_data_file="/cluster/work/refregier/alexree/local_packages/train_pybird_emulators/src/train_pybird_emulators/data/training_data/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --hex_alone --rescale
+- name: train_emu_irpsct_pca
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --main_time=4 --model_name=irpsct_80knots_newbank3_emuinput_pca  --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsct --system=slurm  --pca_preprocess --npca=512
+
+- name: train_emu_irpsloop_mono
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --main_time=4 --model_name=irpsloop_mono_80knots_newbank3_emuinput  --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --mono 
+
+- name: train_emu_irpsloop_mono_pca
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=40 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000 --main_time=4 --model_name=irpsloop_mono_80knots_newbank3_emuinput_pca  --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --mono --pca_preprocess --npca=512
+
+- name: train_emu_irpsloop_quad_alone
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000  --main_time=4 --model_name=irpsloop_quad_80knots_newbank3_emuinput --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --quad_alone 
+
+- name: train_emu_irpsloop_quad_alone_pca
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000  --main_time=4 --model_name=irpsloop_quad_80knots_newbank3_emuinput_pca --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --quad_alone --pca_preprocess --npca=512
+
+- name: train_emu_irpsloop_hex_alone
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000  --main_time=4 --model_name=irpsloop_hex_80knots_newbank3_emuinput --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --hex_alone
+
+- name: train_emu_irpsloop_hex_alone_pca
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0 > 1' --n_jobs=1 --main_n_cores_per_job=30 --main_gpu=1 --mode=jobarray --function=main --main_memory=4096  --main_gpu_memory=20000  --main_time=4 --model_name=irpsloop_hex_80knots_newbank3_emuinput_pca --training_data_file="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_fixed_bug2/total_data.h5" --epochs=1000 --ntrain=3000000 --piece_name=IRPsloop --system=slurm --hex_alone --pca_preprocess --npca=512

@@ -112,8 +112,10 @@ class IntegratedModel:
         # Apply PCA transform if PCA is used
         if self.pca is not None:
             prediction = prediction*self.scaler_scale_out + self.scaler_mean_out
-            prediction = self.pca.inverse_transform(prediction)
-            prediction = self.pca_scaler.inverse_transform(prediction)
+            # Inverse PCA transform using matrix multiplication
+            prediction = jnp.dot(prediction, self.pca_components.T) + self.pca_mean
+            prediction = prediction*self.pca_scaler_scale + self.pca_scaler_mean
+
         else:
             prediction = prediction*self.scaler_scale_out + self.scaler_mean_out
 
@@ -196,13 +198,29 @@ class IntegratedModel:
         self.scaler_mean_out = self.output_scaler.mean_ # Standard deviation of the features
 
 
-        try:
-            self.pca_scaler_mean = self.pca_scaler.mean_
-            self.pca_scaler_scale = self.pca_scaler.scale_
+        # try:
+        #     self.pca_scaler_mean = self.pca_scaler.mean_
+        #     self.pca_scaler_scale = self.pca_scaler.scale_
 
-        except:
-            if self.verbose:
-                print("no pca")
+        # except:
+        #     if self.verbose:
+        #         print("no pca")
+    
+            # Extract PCA-related parameters
+        if self.pca is not None:
+            print("Yes PCA")
+            self.pca_components = jnp.array(self.pca.components_)  # Principal components matrix
+            self.pca_mean = jnp.array(self.pca.mean_)  # PCA mean
+        else:
+            self.pca_components = None
+            self.pca_mean = None
+
+        if self.pca_scaler is not None:
+            self.pca_scaler_mean = jnp.array(self.pca_scaler.mean_)
+            self.pca_scaler_scale = jnp.array(self.pca_scaler.scale_)
+        else:
+            self.pca_scaler_mean = None
+            self.pca_scaler_scale = None
 
         self.jax_model = MyNetwork(hyper_params=tf_hyperparams, weights=tf_weights)
 

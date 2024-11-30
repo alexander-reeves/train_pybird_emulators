@@ -18,7 +18,8 @@ import jax
 from flowMC.nfmodel.rqSpline import MaskedCouplingRQSpline
 from scipy.interpolate import interp1d
 from scipy.stats import norm
-
+from tqdm import tqdm
+from pybird.correlator import Correlator
 LOGGER = logger.get_logger(__name__)
 
 
@@ -120,6 +121,14 @@ def setup(args):
     )
 
     parser.add_argument(
+        "--emu_inputs_file",
+        type=str,
+        default=None,
+        required=False,
+        help="file containing the emu inputs",
+    )
+
+    parser.add_argument(
         "--cov_factor",
         type=float,
         default=1.0,
@@ -185,6 +194,7 @@ def setup(args):
     nf_model_file = args.nf_model_file
     gc_dir = args.gc_dir
     gc_factor = args.gc_factor
+    emu_inputs_file = args.emu_inputs_file
 
 
     if td_type not in ["growth_and_green", "full_bpk", "pybird_pieces"]:
@@ -227,8 +237,8 @@ def setup(args):
         )
         knots = np.load(filename_knots)
         kk = np.logspace(
-            np.log10(k_l), np.log10(k_r), 10000
-        )  # ar update make this extremely large such that we are insensitive to interpolation errors!
+            np.log10(k_l), np.log10(k_r), 1000
+        )  # ar update make this large number of k-points (matching bank) such that we are insensitive to interpolation errors!
         computation_function = partial(
             emu_utils.get_pgg_from_params, N=N, kk=kk, knots=knots
         )
@@ -271,7 +281,8 @@ def setup(args):
         nf_model_file,
         nf_factor,
         gc_dir,
-        gc_factor
+        gc_factor,
+        emu_inputs_file,
     )
 
 
@@ -293,7 +304,8 @@ def main(indices, args):
         nf_model_file,
         nf_factor,
         gc_dir,
-        gc_factor
+        gc_factor,
+        emu_inputs_file,
     ) = setup(args)
     # The sampled values from the LHC for each of the input parameters
 
@@ -358,6 +370,11 @@ def main(indices, args):
                 generated_samples[:, i] = inverse_cdf(uniform_samples[:, i])
                 
             return generated_samples
+    
+    elif emu_inputs_file is not None:
+        LOGGER.info("using input file")
+        with h5py.File(emu_inputs_file) as f: 
+            sampled_values = f["emu_inputs"][:, :]
                 
     else:
         dimension = len(parameters_dicts)
@@ -389,7 +406,7 @@ def main(indices, args):
         start_index = (index- ind_offset) * num_samps_per_index 
         end_index = start_index + num_samps_per_index
 
-        if (nf_model_file is not None) and (gc_dir is not None):
+        if (nf_model_file is None) and (gc_dir is None):
             sub_samples = sampled_values[start_index:end_index]
         
         elif gc_dir is not None:
@@ -454,13 +471,14 @@ def merge(indices, args):
         nf_model_file,
         nf_factor,
         gc_dir,
-        gc_factor
+        gc_factor,
+        emu_inputs_file,
     ) = setup(args)
 
     print("HIII")
 
     with h5py.File(scratch + "/total_data.h5", "a") as hdf_file:
-        for index in indices:
+        for index in tqdm(indices):
             # Load the processed results for the current index from the npz file
 
             try: 
