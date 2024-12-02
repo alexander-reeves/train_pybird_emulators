@@ -2,16 +2,20 @@
 - parameters:
     - scripts_dir: src/train_pybird_emulators/scripts
     - executable1: create_pk_bank.py
-    - n_jobs: 200
+    - n_jobs: 10
     - spec_per_ind: 100
     - n_k: 1000
-    - n_pk: 20000
+    - n_pk: 1000
 
 # - name: create_pk_bank
 #   cmd: esub $[scripts_dir]/$[executable1] --tasks='0>1200' --n_jobs=$[n_jobs] --mode=jobarray --function='merge' --main_time=4 --main_memory=8096 --system=slurm --spec_per_ind=$[spec_per_ind] --n_pk=$[n_pk] --n_k=$[n_k] --merge_memory=8192 --watchdog_time=24 --output_dir="/cluster/scratch/areeves/pk_bank_boss_gaussian" --cov_factor=0.8 --make_pybird_training_data
 
-- name: create_pk_testing
-  cmd: esub $[scripts_dir]/$[executable1] --tasks='0>200' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=8096 --system=slurm --spec_per_ind=$[spec_per_ind] --n_pk=$[n_pk] --n_k=$[n_k] --merge_memory=8192 --watchdog_time=24 --output_dir="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_validation_2_sigma_4sig_clipped_test" --cov_factor=2
+# - name: create_pk_testing
+#   cmd: esub $[scripts_dir]/$[executable1] --tasks='0>200' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=8096 --system=slurm --spec_per_ind=$[spec_per_ind] --n_pk=$[n_pk] --n_k=$[n_k] --merge_memory=8192 --watchdog_time=24 --output_dir="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_validation_2_sigma_4sig_clipped_test" --cov_factor=2
+
+# change output dir to local scratch and update cov_file to the correct path
+- name: create_pk_testing_new_model
+  cmd: esub $[scripts_dir]/$[executable1] --tasks='0>10' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=8096 --system=slurm --spec_per_ind=$[spec_per_ind] --n_pk=$[n_pk] --n_k=$[n_k] --merge_memory=8192 --watchdog_time=24 --output_dir="" --cov_file="" --cov_factor=1 
 
 # - name: create_pk_testing
 #   cmd: esub $[scripts_dir]/$[executable1] --tasks='0>800' --n_jobs=$[n_jobs] --mode=jobarray --function='main,merge' --main_time=4 --main_memory=8096 --system=slurm --spec_per_ind=$[spec_per_ind] --n_pk=$[n_pk] --n_k=$[n_k] --merge_memory=8192 --watchdog_time=24 --output_dir="/cluster/scratch/areeves/pk_bank_boss_gaussian_cov_finetune_set" --cov_factor=0.1

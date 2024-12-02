@@ -43,24 +43,6 @@ def setup(args):
     )
     args = parser.parse_args(args)
 
-    # planck_mean = {'omega_b': 0.02235, 'omega_cdm': 0.120, 'h': 0.675, 'ln10^{10}A_s': 3.044, 'n_s': 0.965, 'Omega_k': 0., 'N_ncdm': 1., 'm_ncdm': 0.06, 'T_ncdm': 0.71611, 'N_ur': 2.0329, 'w0_fld': -1, 'Omega_Lambda': 0.}
-    # lss_sigma = {'omega_b': 0.00035, 'omega_cdm': 0.010, 'h': 0.015, 'ln10^{10}A_s': 0.15, 'n_s': 0.060, 'w0_fld': 0.03, 'm_ncdm': 0.2, 'N_ur': 0.2, 'Omega_k': 0.05} #where is this from? 
-
-    # #these are planck bestfit +- 5 lss sigma
-    # param_ranges = {
-    #     "omega_cdm": [planck_mean["omega_cdm"] - 5*lss_sigma["omega_cdm"], planck_mean["omega_cdm"]+5*lss_sigma["omega_cdm"]],   # omega_cdm
-    #     "omega_b": [planck_mean["omega_b"] - 5*lss_sigma["omega_b"], planck_mean["omega_b"]+5*lss_sigma["omega_b"]], # omega_b
-    #     "h": [planck_mean["h"]-5*lss_sigma["h"], planck_mean["h"] + 5* lss_sigma["h"]],   # h
-    #     "Omega_k": [planck_mean["Omega_k"]- 5*lss_sigma["Omega_k"], planck_mean["Omega_k"] + 5*lss_sigma["Omega_k"]],    # curvature
-    #     # "sigma8": [planck_mean["sigma8"]-5*lss_sigma["sigma8"], planck_mean["sigma8"]+5*lss_sigma["sigma8"]],   # sigma_8 #we dont not vary sigma8 as this is just a normalization parameter
-    #     "n_s": [planck_mean["n_s"] - 5* lss_sigma["n_s"], planck_mean["n_s"] + 5* lss_sigma["n_s"]],    # n_s
-    #     "N_ur":[planck_mean["N_ur"] - 5* lss_sigma["N_ur"], planck_mean["N_ur"] + 5* lss_sigma["N_ur"]], # N_ur
-    #     "m_ncdm":[planck_mean["m_ncdm"] - 5* lss_sigma["m_ncdm"], planck_mean["m_ncdm"] + 5* lss_sigma["m_ncdm"]], # m_ncdm
-    #     "w0_fld":[planck_mean["w0_fld"] - 5* lss_sigma["w0_fld"], planck_mean["w0_fld"] + 5* lss_sigma["w0_fld"]], # w0_fld
-    #     "z":[0,4]
-    # }
-
-    # if output_dir does not exist, create it
     if not os.path.exists(args.output_dir):
         LOGGER.info(f"Creating output directory: {args.output_dir}")
         os.makedirs(args.output_dir)
@@ -74,16 +56,11 @@ def main(indices, args):
 
     kk = np.logspace(np.log10(args.k_l), np.log10(args.k_r), args.n_k)
 
-    # lhs_samples = lhs(n=len(param_ranges.keys()), samples=args.n_pk, criterion='center')
-
-    # scaled_samples = {}
-    # for i, key in enumerate(param_ranges.keys()):
-    #     min_val, max_val = param_ranges[key]
-    #     scaled_samples[key] = lhs_samples[:, i] * (max_val - min_val) + min_val
-
-    # recently fixed the man with regrds to N_ur! SET Omega_m not omega_m !!!!!
+    ### AR: change placnk mean and paramnames if changing the cosmological model used here... 
     planck_mean = {'omega_b': 0.02235, 'Omega_m': 0.315, 'h': 0.675, 'ln10^{10}A_s': 3.044, 'n_s': 0.965, 'Omega_k': 0., 'm_ncdm': 0.02, 'N_ur': 0.00641}
     paramnames = ["ln10^{10}A_s", "h", "Omega_m", "m_ncdm", "n_s", "N_ur", "Omega_k","omega_b"] # order of parameters , m_nu is total neutrino mass
+    ###
+
     mean_vector = np.array([planck_mean[key] for key in paramnames])
     dimension = len(paramnames)
     rng = np.random.default_rng(200)
@@ -115,7 +92,9 @@ def main(indices, args):
     #print one of the samples to check
     print(scaled_samples)
     
+    ## AR update outdir path to local setup
     outdir = "/cluster/work/refregier/alexree/local_packages/pybird_emu/data/eftboss/out" #hardcoded path for now 
+    
     with open(os.path.join(outdir, 'fit_boss_onesky_pk_wc_cmass_ngc_l0.dat')) as f: data_file = f.read()
     eft_params_str = data_file.split(', \n')[1].replace("# ", "")
     eft_params = {key: float(value) for key, value in (pair.split(': ') for pair in eft_params_str.split(', '))}
@@ -169,7 +148,12 @@ def main(indices, args):
             bpk_resum_False[i] = emu_utils.compute_1loop_bpk(pk[i], f[i], D[i], z, Omega0_m, kk, eft_params, resum=False).flatten()
 
             # and finally lets get the emulator inputs
+
+            ## AR update to where the knots are stired in emu training data 
             knots = np.load("/cluster/work/refregier/alexree/local_packages/pybird_emu/data/emu/knots.npy")
+
+
+
             # slightly modify the start and end knot to fall in the range of k we are using so that the interpolation does not fail
             eps = 1e-10
             knots[0] = knots[0] + eps
